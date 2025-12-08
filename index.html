@@ -47,7 +47,7 @@
 <div class="top-bar" style="justify-content:space-between; align-items:flex-start;">
   <h1>cash tracker</h1>
   <div id="authStatus" style="text-align:right; min-width:180px;">
-    <button onclick="signIn()" id="loginBtn">Sign in with Google</button>
+    <button onclick="openAuthModal()" id="mainLoginBtn">Login / Sign Up</button>
   </div>
 </div>
 <div class="top-bar">
@@ -98,6 +98,22 @@
   <canvas id="categoryChart"></canvas>
 </div>
 
+<div id="authModal" class="modal">
+    <div class="modal-content small-modal">
+        <span class="close" onclick="closeAuthModal()">&times;</span>
+        <h2 id="authTitle">Login / Sign Up</h2>
+        <label>Email:</label>
+        <input type="email" id="authEmail" placeholder="user@example.com">
+        <label>Password:</label>
+        <input type="password" id="authPassword" placeholder="Minimum 6 characters">
+        
+        <button onclick="handleAuthAction('login')" id="loginBtn">Login</button>
+        <button onclick="handleAuthAction('signup')" id="signupBtn" style="background:#555; color:#eee;">Sign Up</button>
+        <p style="text-align:center; margin-top:10px; font-size: 0.8em; color: #999;">
+            Note: If you are signing up, this will create a new account.
+        </p>
+    </div>
+</div>
 <div id="entryModal" class="modal">
   <div class="modal-content small-modal">
     <span class="close" onclick="closeModal()">&times;</span>
@@ -140,6 +156,9 @@
     <label>End Date (optional):</label>
     <input type="date" id="repeatEndDate">
     <button onclick="saveRepeatEntry()">Save Repeating Entry</button>
+    <p style="text-align:center; margin-top:10px; font-size: 0.8em; color: #999;">
+            Repeating entries are applied monthly starting on the 1st.
+        </p>
   </div>
 </div>
 
@@ -186,7 +205,7 @@
 /* --- 1. FIREBASE SETUP & IMPORTS -------------------------------------- */
 /* ---------------------------------------------------------------------- */
 
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
@@ -204,7 +223,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
 
 /* ---------------------------------------------------------------------- */
 /* --- 2. GLOBAL STATE & INITIALIZATION --------------------------------- */
@@ -217,30 +235,62 @@ let currency = "$";
 let selectedMonth = null;
 let chart = null;
 const today = new Date();
-let currentUser = null; // NEW: Stores the logged-in user object
+let currentUser = null; 
 
 selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
 
 /* ---------------------------------------------------------------------- */
-/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS ----------------------------- */
+/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS (EMAIL/PASS) ---------------- */
 /* ---------------------------------------------------------------------- */
 
-async function signIn() {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error("Sign-in error:", error);
-    alert(`Sign-in failed: ${error.message}`);
-  }
+function openAuthModal() { 
+    document.getElementById('authModal').style.display = 'flex'; 
+    document.getElementById('authEmail').value = '';
+    document.getElementById('authPassword').value = '';
+}
+function closeAuthModal() { 
+    document.getElementById('authModal').style.display = 'none'; 
+}
+
+async function handleAuthAction(action) {
+    const email = document.getElementById('authEmail').value;
+    const password = document.getElementById('authPassword').value;
+
+    if (!email || !password || password.length < 6) {
+        alert("Please enter a valid email and a password of at least 6 characters.");
+        return;
+    }
+
+    try {
+        if (action === 'login') {
+            await signInWithEmailAndPassword(auth, email, password);
+            alert("Login successful!");
+        } else if (action === 'signup') {
+            await createUserWithEmailAndPassword(auth, email, password);
+            alert("Account created and logged in!");
+        }
+        closeAuthModal();
+    } catch (error) {
+        let message = "An authentication error occurred.";
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            message = "Invalid email or password.";
+        } else if (error.code === 'auth/email-already-in-use') {
+            message = "This email is already registered. Please log in.";
+        } else {
+            console.error("Auth error:", error);
+            message = `Error: ${error.message}`;
+        }
+        alert(message);
+    }
 }
 
 async function userSignOut() {
-  if (!confirm('Are you sure you want to sign out? Data will be cleared from view.')) return;
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error("Sign-out error:", error);
-  }
+    if (!confirm('Are you sure you want to sign out? Data will be cleared from view.')) return;
+    try {
+        await signOut(auth);
+    } catch (error) {
+        console.error("Sign-out error:", error);
+    }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -343,13 +393,13 @@ onAuthStateChanged(auth, async (user) => {
     // User is signed in.
     currentUser = user;
     authStatusDiv.innerHTML = `
-      <p style="margin-bottom:5px; font-size:0.9em;">Welcome, **${user.displayName || user.email}**</p>
+      <p style="margin-bottom:5px; font-size:0.9em;">User: **${user.email}**</p>
       <button onclick="userSignOut()">Sign Out</button>
     `;
   } else {
     // User is signed out.
     currentUser = null;
-    authStatusDiv.innerHTML = `<button onclick="signIn()" id="loginBtn">Sign in with Google</button>`;
+    authStatusDiv.innerHTML = `<button onclick="openAuthModal()" id="mainLoginBtn">Login / Sign Up</button>`;
     
     // Clear in-memory data on sign-out to show only local data (or default empty)
     entries = [];
@@ -370,7 +420,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /* ---------------------------------------------------------------------- */
-/* --- 5. EXISTING BUDGET TRACKER FUNCTIONS (Modified save/load calls) -- */
+/* --- 5. EXISTING BUDGET TRACKER FUNCTIONS ----------------------------- */
 /* ---------------------------------------------------------------------- */
 
 
@@ -790,11 +840,13 @@ function escapeHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-/* close modals when clicking outside */
+/* close modals when clicking outside (Updated) */
 window.onclick = function(e){
+  if(e.target === document.getElementById('authModal')) closeAuthModal();
   if(e.target === document.getElementById('entryModal')) closeModal();
   if(e.target === document.getElementById('repeatModal')) closeRepeatModal();
   if(e.target === document.getElementById('manageRepeatsModal')) closeManageRepeats();
+  if(e.target === document.getElementById('monthlyBalanceModal')) closeMonthlyBalanceModal();
 };
 
 let monthlyChart = null;
