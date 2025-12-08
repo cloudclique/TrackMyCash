@@ -1,327 +1,930 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Budget Tracker</title>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 20px auto;
-      padding: 0 10px;
-    }
-
-    .auth-container {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .auth-container img {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-    }
-
-    h2 {
-      margin-top: 30px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-
-    table,
-    th,
-    td {
-      border: 1px solid #ccc;
-      padding: 8px;
-    }
-
-    th {
-      background: #f0f0f0;
-    }
-
-    button {
-      cursor: pointer;
-      padding: 8px 12px;
-    }
-
-    .chart {
-      max-width: 600px;
-      margin-top: 20px;
-    }
-  </style>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Budget Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  body { background: #121212; color: #eee; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  h1 { font-size: 2rem; color: #00ffd5; margin-bottom: 10px; }
+  .top-bar { width: 100%; max-width: 900px; display:flex; justify-content: space-between; align-items:center; margin-bottom: 10px; }
+  .card { background: #1e1e1e; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); width: 100%; max-width: 900px; margin-bottom: 20px; }
+  select, input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: none; background: #2a2a2a; color: #fff; outline: none; }
+  input::placeholder { color: rgba(255,255,255,0.5); }
+  button { padding: 10px 20px; margin: 5px 0; border-radius: 12px; border: none; cursor: pointer; background: #00ffd5; color: #121212; font-weight: bold; transition: 0.25s; }
+  button:hover { background: #00bfa5; }
+  table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+  th, td { padding: 12px; text-align: center; }
+  th { background: #292929; color: #00ffd5; position: sticky; top: 0; }
+  tr { background: #1e1e1e; transition: background 0.3s; }
+  tr:hover { background: #2a2a2a; }
+  .income { color: #00ff7f; }
+  .expense { color: #ff4c4c; }
+  #totalBalance { font-size: 1.5em; }
+  #monthBalance { font-size: 1.3em; margin-bottom: 10px; }
+  .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; padding: 20px; }
+  .modal-content { background: #1e1e1e; border-radius: 12px; padding: 18px; width: 100%; max-width: 760px; color: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+  .small-modal { max-width: 420px; }
+  .close { float: right; font-size: 24px; font-weight: bold; cursor: pointer; color: #00ffd5; }
+  .close:hover { color: #00bfa5; }
+  #categoryChart { max-width: 400px; max-height: 300px; margin: 0 auto; }
+  .gray { opacity: 0.45 !important; filter: grayscale(80%); }
+  /* Manage repeats scroll container */
+  .manage-scroll { max-height: 320px; overflow:auto; border-radius:8px; margin-top:10px; }
+  .manage-table td input[type="text"], .manage-table td input[type="number"], .manage-table td input[type="date"], .manage-table td input[list]{
+    width: 100%; box-sizing: border-box; background:#222; color:#fff; padding:6px; border-radius:6px; border:1px solid #333;
+  }
+  @media (max-width: 640px){
+    .modal-content { padding: 12px; max-width: 95%; }
+    th, td { padding: 8px; font-size: 13px; }
+  }
+</style>
 </head>
-
 <body>
 
-  <!-- AUTH UI -->
-  <div class="auth-container">
-    <span id="user-info"></span>
-    <button id="login-btn">Login</button>
-    <button id="logout-btn" style="display:none;">Logout</button>
-  </div>
+<div class="top-bar" style="justify-content:space-between; align-items:flex-start;">
+  <h1>cash tracker</h1>
+  <div id="authStatus" style="text-align:right; min-width:180px;">
+    <button onclick="signIn()" id="loginBtn">Sign in with Google</button>
+  </div>
+</div>
+<div class="top-bar">
+  <div>
+    <label>Currency:
+      <select id="currency" onchange="changeCurrency()">
+        <option value="$">USD ($)</option>
+        <option value="€">EUR (€)</option>
+        <option value="£">GBP (£)</option>
+        <option value="¥">JPY (¥)</option>
+        <option value="¥">CNY (¥)</option>
+        <option value="₽">RUB (₽)</option>
+        <option value="₸">KZT (₸)</option>
+      </select>
+    </label>
+  </div>
+  <div id="totalBalance">Total Balance: $0</div>
+</div>
 
-  <h1>Budget Tracker</h1>
+<div class="card">
+  <button onclick="openModal()">Add Entry</button>
+  <button onclick="clearAll()">Clear All</button>
+  <button onclick="exportData()">Export Data</button>
+  <input type="file" id="importFile" style="display:none" onchange="importData(event)">
+  <button onclick="document.getElementById('importFile').click()">Import Data</button>
+  <button onclick="openRepeatModal()">Add Repeating Entry</button>
+  <button onclick="openManageRepeats()">Manage Repeating Entries</button>
+</div>
 
-  <!-- Entry Form -->
-  <div>
-    <input id="text-input" placeholder="Description" />
-    <input id="amount-input" type="number" placeholder="Amount" />
-    <select id="type-input">
-      <option value="income">Income</option>
-      <option value="expense">Expense</option>
-    </select>
-    <button onclick="addEntry()">Add</button>
-  </div>
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <button onclick="prevMonth()">&larr; Previous Month</button>
+    <div id="monthLabel">All Time</div>
+    <button onclick="nextMonth()">Next Month &rarr;</button>
+  </div>
+  <div id="monthBalance">Monthly Balance: $0</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th><th>Reasoning</th><th>Amount</th><th>Category</th><th>Date</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="entries"></tbody>
+  </table>
+</div>
 
-  <!-- Entries Table -->
-  <table>
-    <thead>
-      <tr><th>Description</th><th>Amount</th><th>Type</th><th>Date</th><th></th></tr>
-    </thead>
-    <tbody id="entries-body"></tbody>
-  </table>
+<div class="card">
+  <canvas id="categoryChart"></canvas>
+</div>
 
-  <h2>Chart</h2>
-  <canvas id="budget-chart" class="chart"></canvas>
+<div id="entryModal" class="modal">
+  <div class="modal-content small-modal">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2 id="modalTitle">New Entry</h2>
+    <label>Type:</label>
+    <select id="type">
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+    <label>Reasoning (optional):</label>
+    <input type="text" id="reason" placeholder="Description">
+    <label>Amount*:</label>
+    <input type="number" id="amount" placeholder="Amount">
+    <label>Category (optional):</label>
+    <input list="categoryList" id="category" placeholder="Type or select category">
+    <datalist id="categoryList"></datalist>
+    <label>Date (optional):</label>
+    <input type="date" id="date">
+    <button onclick="saveEntry()">Save</button>
+  </div>
+</div>
 
-  <!-- Firebase + App Logic -->
-  <script type="module">
-    import {
-      initializeApp
-    } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+<div id="repeatModal" class="modal">
+  <div class="modal-content small-modal">
+    <span class="close" onclick="closeRepeatModal()">&times;</span>
+    <h2>New Repeating Entry</h2>
+    <label>Type:</label>
+    <select id="repeatType">
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+    <label>Reasoning:</label>
+    <input type="text" id="repeatReason" placeholder="Description">
+    <label>Amount*:</label>
+    <input type="number" id="repeatAmount" placeholder="Amount">
+    <label>Category:</label>
+    <input list="categoryList" id="repeatCategory" placeholder="Type or select category">
+    <label>Start Date:</label>
+    <input type="date" id="repeatStartDate">
+    <label>End Date (optional):</label>
+    <input type="date" id="repeatEndDate">
+    <button onclick="saveRepeatEntry()">Save Repeating Entry</button>
+  </div>
+</div>
 
-    import {
-      getAuth,
-      onAuthStateChanged,
-      GoogleAuthProvider,
-      signInWithPopup,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+<div id="manageRepeatsModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeManageRepeats()">&times;</span>
+    <h2>Manage Repeating Entries</h2>
 
-    import {
-      getFirestore,
-      doc,
-      getDoc,
-      setDoc,
-      onSnapshot
-    } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        <div class="manage-scroll">
+      <table class="manage-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Reason</th>
+            <th>Amount</th>
+            <th>Category</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="manageRepeatsBody"></tbody>
+      </table>
+    </div>
 
-    /* ==========================
-          FIREBASE CONFIG
-    ========================== */
-    const firebaseConfig = {
-      apiKey: "AIzaSyAdSi-qkPcE87rJ8oFkoGW4VkxRBB3lZUI",
-      authDomain: "budget-5cc5d.firebaseapp.com",
-      projectId: "budget-5cc5d",
-      storageBucket: "budget-5cc5d.firebasestorage.app",
-      messagingSenderId: "673151458646",
-      appId: "1:673151458646:web:367647956075168a303310"
-    };
+    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+      <button onclick="closeManageRepeats()">Close</button>
+    </div>
+  </div>
+</div>
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth();
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+<div id="monthlyBalanceModal" class="modal">
+  <div class="modal-content" style="width: 95%; max-width: 900px;">
+    <span class="close" onclick="closeMonthlyBalanceModal()">&times;</span>
+    <h2>Monthly Total Balance</h2>
+    <div id="chartWrapper" style="overflow-x:auto; cursor: grab;">
+      <canvas id="monthlyBalanceChart" height="300"></canvas>
+    </div>
+  </div>
+</div>
 
+<script type="module">
+/* ---------------------------------------------------------------------- */
+/* --- 1. FIREBASE SETUP & IMPORTS -------------------------------------- */
+/* ---------------------------------------------------------------------- */
 
-    /* ==========================
-          APP STATE
-    ========================== */
-    let entries = [];
-    let unsubscribe = null; // Firestore listener
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyC76V6iCBNNAwDQI2i7IuQKWSSAOuPC-eA",
+  authDomain: "budgettracker-260e6.firebaseapp.com",
+  projectId: "budgettracker-260e6",
+  storageBucket: "budgettracker-260e6.firebasestorage.app",
+  messagingSenderId: "583347664104",
+  appId: "1:583347664104:web:8372c2d4debd2460fe855d",
+  measurementId: "G-Z7VET0VF3S"
+};
 
-    /* ==========================
-          AUTH FUNCTIONS
-    ========================== */
+// Initialize Firebase services
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
-    async function signIn() {
-      await signInWithPopup(auth, provider);
+/* ---------------------------------------------------------------------- */
+/* --- 2. GLOBAL STATE & INITIALIZATION --------------------------------- */
+/* ---------------------------------------------------------------------- */
+
+let entries = [];
+let repeatingEntries = [];
+let editIndex = null;
+let currency = "$";
+let selectedMonth = null;
+let chart = null;
+const today = new Date();
+let currentUser = null; // NEW: Stores the logged-in user object
+
+selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+
+/* ---------------------------------------------------------------------- */
+/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS ----------------------------- */
+/* ---------------------------------------------------------------------- */
+
+async function signIn() {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error("Sign-in error:", error);
+    alert(`Sign-in failed: ${error.message}`);
+  }
+}
+
+async function userSignOut() {
+  if (!confirm('Are you sure you want to sign out? Data will be cleared from view.')) return;
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Sign-out error:", error);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* --- 4. DATA MANAGEMENT (Load/Save/Priority) -------------------------- */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Loads data: Firestore (if logged in) > Local Storage > Default
+ */
+async function loadData() {
+  // 1. Load from Local Storage (as cache/fallback)
+  const localSaved = localStorage.getItem('budgetEntries');
+  const localRepeats = localStorage.getItem('budgetRepeats');
+  
+  if (localSaved) {
+    const saved = JSON.parse(localSaved);
+    entries = saved.entries || [];
+    currency = saved.currency || "$";
+    document.getElementById('currency').value = currency;
+  }
+  if (localRepeats) {
+    repeatingEntries = JSON.parse(localRepeats);
+  }
+
+  // 2. Override with Firestore data if logged in
+  if (currentUser) {
+    const docRef = doc(db, "budgets", currentUser.uid);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const firestoreData = docSnap.data();
+      entries = firestoreData.entries || [];
+      repeatingEntries = firestoreData.repeatingEntries || [];
+      currency = firestoreData.currency || "$";
+      document.getElementById('currency').value = currency;
+      
+      // Update local storage with fresh data from Firestore
+      localStorage.setItem('budgetEntries', JSON.stringify({ entries, currency }));
+      localStorage.setItem('budgetRepeats', JSON.stringify(repeatingEntries));
+      
+      console.log("Data loaded from Firestore.");
+    } else {
+      console.log("No budget data found in Firestore for this user. Using local data.");
+      // If no Firestore data, save existing local data to Firestore to initialize the document
+      saveData();
+      saveRepeats();
     }
+  }
+  
+  // 3. Render
+  renderEntries();
+}
 
-    // FIX: Provide login() alias to avoid SES error
-    function login() {
-      return signIn();
+/**
+ * Saves entries and currency: Firestore > Local Storage
+ */
+function saveData(){
+  // Local storage (browser saved files)
+  localStorage.setItem('budgetEntries', JSON.stringify({ entries, currency }));
+
+  // Firestore (highest priority)
+  if (currentUser) {
+    const userId = currentUser.uid;
+    const docRef = doc(db, "budgets", userId);
+
+    setDoc(docRef, { 
+      entries: entries, 
+      currency: currency,
+      lastUpdated: new Date().toISOString()
+    }, { merge: true }) 
+    .catch(error => console.error("Error writing entries to Firestore:", error));
+  }
+}
+
+/**
+ * Saves repeating entries: Firestore > Local Storage
+ */
+function saveRepeats(){
+  // Local storage (browser saved files)
+  localStorage.setItem('budgetRepeats', JSON.stringify(repeatingEntries));
+
+  // Firestore (highest priority)
+  if (currentUser) {
+    const userId = currentUser.uid;
+    const docRef = doc(db, "budgets", userId);
+    
+    setDoc(docRef, { 
+      repeatingEntries: repeatingEntries,
+      lastUpdated: new Date().toISOString()
+    }, { merge: true }) 
+    .catch(error => console.error("Error writing repeats to Firestore:", error));
+  }
+}
+
+// Global listener for auth state changes (main entry point for data flow)
+onAuthStateChanged(auth, async (user) => {
+  const authStatusDiv = document.getElementById('authStatus');
+  
+  if (user) {
+    // User is signed in.
+    currentUser = user;
+    authStatusDiv.innerHTML = `
+      <p style="margin-bottom:5px; font-size:0.9em;">Welcome, **${user.displayName || user.email}**</p>
+      <button onclick="userSignOut()">Sign Out</button>
+    `;
+  } else {
+    // User is signed out.
+    currentUser = null;
+    authStatusDiv.innerHTML = `<button onclick="signIn()" id="loginBtn">Sign in with Google</button>`;
+    
+    // Clear in-memory data on sign-out to show only local data (or default empty)
+    entries = [];
+    repeatingEntries = [];
+    
+    // If local storage has a currency setting, maintain that
+    const localSaved = localStorage.getItem('budgetEntries');
+    if (localSaved) {
+        currency = JSON.parse(localSaved).currency;
+    } else {
+        currency = "$";
     }
+    document.getElementById('currency').value = currency;
+  }
+  
+  // Load data corresponding to the current state (logged in or logged out)
+  await loadData();
+});
 
-    async function logout() {
-      await signOut(auth);
-    }
-
-
-    /* ==========================
-        FIREBASE LOAD + SAVE
-    ========================== */
-
-    async function loadUserData(uid) {
-      if (!uid) return;
-
-      const ref = doc(db, "users", uid);
-      const snap = await getDoc(ref);
-
-      if (snap.exists()) {
-        const data = snap.data();
-        entries = data.entries || [];
-      } else {
-        await setDoc(ref, { entries: [] });
-        entries = [];
-      }
-
-      renderEntries();
-      renderChart();
-    }
-
-    // Debounced Firestore saving
-    let saveTimer = null;
-    function saveUserData(uid) {
-      if (!uid) return;
-
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(async () => {
-        const ref = doc(db, "users", uid);
-        await setDoc(ref, { entries }, { merge: true });
-      }, 300);
-    }
+/* ---------------------------------------------------------------------- */
+/* --- 5. EXISTING BUDGET TRACKER FUNCTIONS (Modified save/load calls) -- */
+/* ---------------------------------------------------------------------- */
 
 
-    /* ==========================
-           AUTH STATE LISTENER
-    ========================== */
+/* --- Basic entry functions --- */
+function changeCurrency(){
+  currency = document.getElementById('currency').value;
+  saveData();
+  renderEntries();
+}
 
-    onAuthStateChanged(auth, (user) => {
-      const info = document.getElementById("user-info");
-      const loginBtn = document.getElementById("login-btn");
-      const logoutBtn = document.getElementById("logout-btn");
+function openModal(edit=false, index=null){
+  document.getElementById('entryModal').style.display = 'flex';
+  if(edit && index!==null){
+    editIndex = index;
+    const e = entries[index];
+    document.getElementById('modalTitle').innerText = 'Edit Entry';
+    document.getElementById('type').value = e.type;
+    document.getElementById('reason').value = e.reason;
+    document.getElementById('amount').value = e.amount;
+    document.getElementById('category').value = e.category;
+    document.getElementById('date').value = e.date;
+  } else {
+    editIndex = null;
+    document.getElementById('modalTitle').innerText = 'New Entry';
+    clearInputs();
+  }
+}
+function closeModal(){ document.getElementById('entryModal').style.display = 'none'; }
 
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
-      }
+function saveEntry(){
+  const type = document.getElementById('type').value;
+  const reason = document.getElementById('reason').value.trim();
+  const amount = parseFloat(document.getElementById('amount').value);
+  const category = document.getElementById('category').value.trim();
+  let date = document.getElementById('date').value;
 
-      if (user) {
-        info.innerHTML = `<img src="${user.photoURL}"> ${user.displayName}`;
-        loginBtn.style.display = "none";
-        logoutBtn.style.display = "inline-block";
+  if(!amount || amount <= 0){ alert('Amount required and > 0'); return; }
+  if(!date){
+    const d = new Date();
+    date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
 
-        const ref = doc(db, "users", user.uid);
+  const entry = { type, reason, amount, category, date };
 
-        unsubscribe = onSnapshot(ref, (snap) => {
-          if (snap.exists()) {
-            entries = snap.data().entries || [];
-            renderEntries();
-            renderChart();
-          }
-        });
+  if(editIndex !== null) entries[editIndex] = entry;
+  else entries.push(entry);
 
-      } else {
-        info.innerHTML = "";
-        loginBtn.style.display = "inline-block";
-        logoutBtn.style.display = "none";
+  saveData();
+  renderEntries();
+  closeModal();
+  clearInputs();
+}
 
-        entries = [];
-        renderEntries();
-        renderChart();
-      }
-    });
+/* --- Repeating entries: add, save --- */
+function openRepeatModal(){ document.getElementById('repeatModal').style.display='flex'; resetRepeatInputs(); }
+function closeRepeatModal(){ document.getElementById('repeatModal').style.display='none'; }
 
-    document.getElementById("login-btn").onclick = login;
-    document.getElementById("logout-btn").onclick = logout;
+function resetRepeatInputs(){
+  document.getElementById('repeatType').value = 'income';
+  document.getElementById('repeatReason').value = '';
+  document.getElementById('repeatAmount').value = '';
+  document.getElementById('repeatCategory').value = '';
+  document.getElementById('repeatStartDate').value = '';
+  document.getElementById('repeatEndDate').value = '';
+}
 
+function saveRepeatEntry(){
+  const type = document.getElementById('repeatType').value;
+  const reason = document.getElementById('repeatReason').value.trim();
+  const amount = parseFloat(document.getElementById('repeatAmount').value);
+  const category = document.getElementById('repeatCategory').value.trim();
+  const start = document.getElementById('repeatStartDate').value;
+  const end = document.getElementById('repeatEndDate').value || null;
 
-    /* ==========================
-           UI / ACTIONS
-    ========================== */
+  if(!amount || amount <= 0 || !start){ alert('Amount and start date required'); return; }
 
-    function addEntry() {
-      const text = document.getElementById("text-input").value.trim();
-      const amount = parseFloat(document.getElementById("amount-input").value);
-      const type = document.getElementById("type-input").value;
+  repeatingEntries.push({ type, reason, amount, category, start, end, excludeMonths: [] });
+  saveRepeats();
+  closeRepeatModal();
+  renderEntries();
+}
 
-      if (!text || isNaN(amount)) return alert("Enter valid data.");
+/* --- Manage repeating: open modal & build editable table --- */
+function openManageRepeats(){
+  document.getElementById('manageRepeatsModal').style.display = 'flex';
+  const tbody = document.getElementById('manageRepeatsBody');
+  tbody.innerHTML = '';
 
-      const entry = {
-        text,
-        amount,
-        type,
-        date: new Date().toISOString()
-      };
+  repeatingEntries.forEach((r, i) => {
+    const tr = document.createElement('tr');
 
-      entries.push(entry);
-      renderEntries();
-      renderChart();
+    // Type (not editable here, but displayed)
+    // Reason (editable), Amount (editable), Category (editable), Start (editable), End (editable), Actions
+    tr.innerHTML = `
+      <td>${r.type}</td>
+      <td><input type="text" value="${escapeHtml(r.reason||'')}" onchange="updateRepeatField(${i}, 'reason', this.value)"></td>
+      <td><input type="number" step="0.01" value="${r.amount}" onchange="updateRepeatField(${i}, 'amount', this.value)"></td>
+      <td><input list="categoryList" type="text" value="${escapeHtml(r.category||'')}" onchange="updateRepeatField(${i}, 'category', this.value)"></td>
+      <td><input type="date" value="${r.start}" onchange="updateRepeatField(${i}, 'start', this.value)"></td>
+      <td><input type="date" value="${r.end||''}" onchange="updateRepeatField(${i}, 'end', this.value||null)"></td>
+      <td><button onclick="deleteRepeat(${i})">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 
-      if (auth.currentUser) {
-        saveUserData(auth.currentUser.uid);
-      }
-    }
+/* helper to sanitize values placed into value="" above */
+function escapeHtml(s){
+  return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
-    function deleteEntry(index) {
-      entries.splice(index, 1);
-      renderEntries();
-      renderChart();
+function closeManageRepeats(){ document.getElementById('manageRepeatsModal').style.display='none'; }
 
-      if (auth.currentUser) {
-        saveUserData(auth.currentUser.uid);
-      }
-    }
+function deleteRepeat(i){
+  if(!confirm('Delete repeating entry?')) return;
+  repeatingEntries.splice(i,1);
+  saveRepeats();
+  openManageRepeats();
+  renderEntries();
+}
 
-    function renderEntries() {
-      const tbody = document.getElementById("entries-body");
-      tbody.innerHTML = "";
+/* Called by inputs in Manage Repeats to save changes inline */
+function updateRepeatField(index, field, value){
+  if(index < 0 || index >= repeatingEntries.length) return;
 
-      entries.forEach((e, idx) => {
-        const row = document.createElement("tr");
+  if(field === 'amount'){
+    const num = parseFloat(value);
+    repeatingEntries[index].amount = Number.isFinite(num) ? num : 0;
+  } else if(field === 'end'){
+    // set to null if empty string
+    repeatingEntries[index].end = value === '' || value === null ? null : value;
+  } else {
+    repeatingEntries[index][field] = value;
+  }
 
-        row.innerHTML = `
-          <td>${e.text}</td>
-          <td>${e.amount}</td>
-          <td>${e.type}</td>
-          <td>${new Date(e.date).toLocaleDateString()}</td>
-          <td><button onclick="deleteEntry(${idx})">X</button></td>
-        `;
+  saveRepeats();
+}
 
-        tbody.appendChild(row);
-      });
-    }
+/* --- Repeats expanded for a selected month --- */
+function getRepeatsForMonth(ym){
+  if(!ym) return [];
+  const [year, month] = ym.split('-');
+  const monthStr = `${year}-${month}`;
 
+  return repeatingEntries.flatMap(entry => {
+    const startMonth = entry.start.slice(0,7);
+    const endMonth = entry.end ? entry.end.slice(0,7) : null;
 
-    /* ==========================
-              CHART
-    ========================== */
+    if(entry.excludeMonths && entry.excludeMonths.includes(monthStr)){
+      return [{ ...entry, date: monthStr + '-01', isRepeat: true, excluded: true }];
+    }
 
-    let chart = null;
+    if(monthStr < startMonth) return [];
+    if(endMonth && monthStr > endMonth) return [];
 
-    function renderChart() {
-      const ctx = document.getElementById("budget-chart");
+    return [{ ...entry, date: monthStr + '-01', isRepeat: true, excluded: false }];
+  });
+}
 
-      const income = entries.filter(e => e.type === "income").reduce((a,b)=>a+b.amount, 0);
-      const expense = entries.filter(e => e.type === "expense").reduce((a,b)=>a+b.amount, 0);
+/* toggle include/exclude for a repeating entry instance (for a month) */
+function toggleRepeat(reason, date){
+  const month = date.slice(0,7);
+  // find the correct repeating entry by reason AND month range (prefer exact match)
+  const entry = repeatingEntries.find(e => e.reason === reason);
+  if(!entry) return;
 
-      if (chart) chart.destroy();
+  entry.excludeMonths = entry.excludeMonths || [];
+  const idx = entry.excludeMonths.indexOf(month);
+  if(idx >= 0) entry.excludeMonths.splice(idx,1);
+  else entry.excludeMonths.push(month);
 
-      chart = new Chart(ctx, {
-        type: "pie",
-        data: {
-          labels: ["Income", "Expense"],
-          datasets: [{
-            data: [income, expense]
-          }]
-        }
-      });
-    }
+  saveRepeats();
+}
 
-  </script>
+/* --- Render main entries + repeats for selected month --- */
+function renderEntries(){
+  // Build table body
+  const tbody = document.getElementById('entries');
+  tbody.innerHTML = '';
+
+  const todayMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  let totalBalance = 0;
+  let monthlyBalance = 0;
+
+  // If selectedMonth is null/undefined, treat as all-time - but our UI defaults to current month
+  if(!selectedMonth) selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+
+  const filteredEntries = entries.filter(e => e.date.startsWith(selectedMonth));
+  const repeats = getRepeatsForMonth(selectedMonth);
+
+  // Total balance = all entries + repeats that occurred up to current month (not future)
+  const pastEntries = entries.filter(e => e.date.slice(0,7) <= todayMonth);
+
+  const pastRepeats = repeatingEntries.flatMap(entry => {
+    const months = [];
+    let cur = new Date(entry.start);
+    const end = entry.end ? new Date(entry.end) : today;
+
+    while(cur <= end && cur <= today){
+      const m = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+      if(!(entry.excludeMonths || []).includes(m)){
+        months.push({...entry, date: m + '-01', isRepeat: true});
+      }
+      cur.setMonth(cur.getMonth()+1);
+    }
+    return months;
+  });
+
+  totalBalance =
+    pastEntries.reduce((s,e) => s + (e.type === 'income' ? e.amount : -e.amount), 0) +
+    pastRepeats.reduce((s,e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
+
+  // render current month rows (entries + repeats)
+  [...filteredEntries, ...repeats].forEach(entry => {
+    if(!entry.excluded) monthlyBalance += (entry.type === 'income' ? entry.amount : -entry.amount);
+
+    const tr = document.createElement('tr');
+    if(entry.excluded) tr.classList.add('gray');
+
+    // safe strings for onclick usage
+    const safeReason = (entry.reason || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const safeDate = entry.date;
+
+    tr.innerHTML = `
+      <td class="${entry.type}">${entry.type}${entry.isRepeat ? ' (R)' : ''}</td>
+      <td>${entry.reason ? escapeHtml(entry.reason) : '-'}</td>
+      <td>${currency}${Number(entry.amount).toFixed(2)}</td>
+      <td>${entry.category ? escapeHtml(entry.category) : '-'}</td>
+      <td>${entry.date}</td>
+      <td>${
+        entry.isRepeat
+          ? `<button onclick="toggleRepeat('${safeReason}','${safeDate}')">${entry.excluded ? 'Include' : 'Exclude'}</button>`
+          : `<button onclick="openModal(true, ${entries.indexOf(entry)})">✎</button>
+             <button onclick="deleteEntry(${entries.indexOf(entry)})">X</button>`
+      }</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('totalBalance').innerText = `Total Balance: ${currency}${totalBalance.toFixed(2)}`;
+  document.getElementById('monthBalance').innerText = `Monthly Balance: ${currency}${monthlyBalance.toFixed(2)}`;
+  document.getElementById('monthLabel').innerText = selectedMonth ? formatMonthLabel(selectedMonth) : 'All Time';
+
+  updateCategoryList();
+  updateChart();
+}
+
+/* --- Helpers & storage --- */
+function formatMonthLabel(ym){
+  const [y,m] = ym.split('-');
+  const d = new Date(y, m-1);
+  return d.toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
+function clearInputs(){
+  document.getElementById('reason').value = '';
+  document.getElementById('amount').value = '';
+  document.getElementById('category').value = '';
+  document.getElementById('date').value = '';
+}
+
+function deleteEntry(index){
+  if(!confirm('Delete entry?')) return;
+  entries.splice(index, 1);
+  saveData();
+  renderEntries();
+}
+
+function clearAll(){
+  if(!confirm('Clear EVERYTHING? This will remove entries and repeating entries and erase them from the database.')) return;
+  entries = [];
+  repeatingEntries = [];
+  saveData();
+  saveRepeats();
+  renderEntries();
+}
+
+/* Export / Import */
+function exportData(){
+  const dataStr = JSON.stringify({ entries, currency, repeatingEntries }, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'budget_data.json';
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function importData(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const data = JSON.parse(e.target.result);
+      entries = data.entries || [];
+      currency = data.currency || "$";
+      repeatingEntries = data.repeatingEntries || [];
+      document.getElementById('currency').value = currency;
+      saveData();
+      saveRepeats();
+      renderEntries();
+      alert('Data imported.');
+    } catch(err){
+      alert('Invalid file.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* category datalist */
+function updateCategoryList(){
+  const list = document.getElementById('categoryList');
+  list.innerHTML = '';
+  const cats = new Set();
+  entries.forEach(e => { if(e.category) cats.add(e.category); });
+  repeatingEntries.forEach(r => { if(r.category) cats.add(r.category); });
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    list.appendChild(opt);
+  });
+}
+
+/* Chart: basic pie by category (expenses only to show spend) */
+function updateChart() {
+  const canvas = document.getElementById('categoryChart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+
+  // collect entries for current month
+  const monthEntries = selectedMonth
+    ? entries.filter(e => e.date.startsWith(selectedMonth))
+        .concat(getRepeatsForMonth(selectedMonth).filter(r => !r.excluded))
+    : entries.concat(getRepeatsForMonth(selectedMonth).filter(r => !r.excluded)); // Use selectedMonth consistently
+
+  // gather categories
+  const labels = [...new Set(monthEntries.map(e => e.category).filter(Boolean))];
+
+  // if absolutely no categories → clear chart and stop
+  if (labels.length === 0) {
+    if (chart) chart.destroy();
+    return;
+  }
+
+  // pastel color palette
+  const pastelColors = [
+    '#A3C9F9', // pastel blue
+    '#FFB5C8', // pastel pink
+    '#FBE7A1', // pastel yellow
+    '#C8E7C5', // pastel green
+    '#E6C7F1', // pastel purple
+    '#FFD9B3', // pastel peach
+    '#B8F2E0', // pastel aqua
+    '#F2C6DE'  // soft rose
+  ];
+
+  // calculate category sums
+  const data = labels.map(cat =>
+    monthEntries
+      .filter(e => e.category === cat)
+      .reduce((sum, e) => sum + (e.type === 'income' ? e.amount : -e.amount), 0)
+  );
+
+  // destroy previous chart
+  if (chart) chart.destroy();
+
+  // create chart
+  chart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: pastelColors.slice(0, labels.length)
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Category Balances (Income - Expense)'
+        },
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 16,
+            font: { size: 13 }
+          }
+        }
+      }
+    }
+  });
+}
+
+/* Month navigation */
+function prevMonth(){
+  const d = new Date(selectedMonth + '-01');
+  d.setMonth(d.getMonth() - 1);
+  selectedMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderEntries();
+}
+function nextMonth(){
+  const d = new Date(selectedMonth + '-01');
+  d.setMonth(d.getMonth() + 1);
+  selectedMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderEntries();
+}
+
+/* small helper used earlier */
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* close modals when clicking outside */
+window.onclick = function(e){
+  if(e.target === document.getElementById('entryModal')) closeModal();
+  if(e.target === document.getElementById('repeatModal')) closeRepeatModal();
+  if(e.target === document.getElementById('manageRepeatsModal')) closeManageRepeats();
+};
+
+let monthlyChart = null;
+
+// Drag scrolling
+const chartWrapper = document.getElementById('chartWrapper');
+let isDragging = false;
+let startX, scrollLeft;
+
+chartWrapper.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  chartWrapper.style.cursor = 'grabbing';
+  startX = e.pageX - chartWrapper.offsetLeft;
+  scrollLeft = chartWrapper.scrollLeft;
+});
+chartWrapper.addEventListener('mouseleave', () => { isDragging = false; chartWrapper.style.cursor = 'grab'; });
+chartWrapper.addEventListener('mouseup', () => { isDragging = false; chartWrapper.style.cursor = 'grab'; });
+chartWrapper.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  e.preventDefault();
+  const x = e.pageX - chartWrapper.offsetLeft;
+  chartWrapper.scrollLeft = scrollLeft + (startX - x);
+});
+
+// Open modal
+document.getElementById('totalBalance').onclick = function() {
+  document.getElementById('monthlyBalanceModal').style.display = 'flex';
+  renderMonthlyBalanceChart();
+};
+
+// Close modal
+function closeMonthlyBalanceModal() {
+  document.getElementById('monthlyBalanceModal').style.display = 'none';
+}
+
+// Render chart
+function renderMonthlyBalanceChart() {
+  const ctx = document.getElementById('monthlyBalanceChart').getContext('2d');
+
+  const allEntries = entries.concat(
+    repeatingEntries.flatMap(entry => {
+      const months = [];
+      let current = new Date(entry.start);
+      const end = entry.end ? new Date(entry.end) : today;
+      while(current <= end){
+        const monthStr = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}`;
+        if(!entry.excludeMonths.includes(monthStr)){
+          months.push({ ...entry, date: monthStr+'-01', isRepeat:true });
+        }
+        current.setMonth(current.getMonth()+1);
+      }
+      return months;
+    })
+  );
+
+  // Collect all months, sorted oldest → newest
+  const monthSet = new Set(allEntries.map(e => e.date.slice(0,7)));
+  const months = Array.from(monthSet).sort();
+
+  // Compute cumulative total balance
+  let cumulative = 0;
+  const totalBalances = months.map(month => {
+    const monthEntries = entries.filter(e => e.date.startsWith(month))
+      .concat(getRepeatsForMonth(month).filter(r => !r.excluded));
+    const monthSum = monthEntries.reduce((sum,e)=>sum + (e.type==='income'?e.amount:-e.amount),0);
+    cumulative += monthSum;
+    return cumulative;
+  });
+
+  if(monthlyChart) monthlyChart.destroy();
+
+  // Fixed width per month, max 12 visible at a time
+  const canvasWidth = Math.max(12*80, months.length*80); // 80px per month
+  const canvas = document.getElementById('monthlyBalanceChart');
+  canvas.style.width = canvasWidth + 'px';
+  canvas.style.height = '300px';
+
+  monthlyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months.map(m => {
+        const [y,mon] = m.split('-');
+        const d = new Date(y, mon-1);
+        return d.toLocaleString('default', { month:'short', year:'numeric' });
+      }),
+      datasets: [{
+        label: 'Total Balance',
+        data: totalBalances,
+        borderColor: '#AEC6CF',       // pastel blue
+        backgroundColor: 'rgba(174,198,207,0.3)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      scales: {
+        x: { 
+          ticks: { maxRotation: 45, minRotation: 45 },
+          grid: { display: false }
+        },
+        y: { 
+          beginAtZero: false, 
+          grid: { color: '#444' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      }
+    }
+  });
+
+  // Scroll so the **current month** is at the right
+  setTimeout(()=> {
+    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    const index = months.indexOf(currentMonthStr);
+    if(index >= 0){
+      const monthWidth = 80; // same as used above
+      chartWrapper.scrollLeft = Math.max(0, monthWidth*index - chartWrapper.clientWidth + monthWidth);
+    } else {
+      chartWrapper.scrollLeft = chartWrapper.scrollWidth - chartWrapper.clientWidth;
+    }
+  }, 50);
+}
+
+</script>
 
 </body>
 </html>
