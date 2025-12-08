@@ -1,657 +1,327 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Budget Tracker (Firestore)</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-  body { background: #121212; color: #eee; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-  h1 { font-size: 2rem; color: #00ffd5; margin-bottom: 10px; }
-  .top-bar { width: 100%; max-width: 900px; display:flex; justify-content: space-between; align-items:center; margin-bottom: 10px; }
-  .card { background: #1e1e1e; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); width: 100%; max-width: 900px; margin-bottom: 20px; }
-  select, input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: none; background: #2a2a2a; color: #fff; outline: none; }
-  input::placeholder { color: rgba(255,255,255,0.5); }
-  button { padding: 10px 20px; margin: 5px 0; border-radius: 12px; border: none; cursor: pointer; background: #00ffd5; color: #121212; font-weight: bold; transition: 0.25s; }
-  button:hover { background: #00bfa5; }
-  table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
-  th, td { padding: 12px; text-align: center; }
-  th { background: #292929; color: #00ffd5; position: sticky; top: 0; }
-  tr { background: #1e1e1e; transition: background 0.3s; }
-  tr:hover { background: #2a2a2a; }
-  .income { color: #00ff7f; }
-  .expense { color: #ff4c4c; }
-  #totalBalance { font-size: 1.5em; }
-  #monthBalance { font-size: 1.3em; margin-bottom: 10px; }
-  .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; padding: 20px; }
-  .modal-content { background: #1e1e1e; border-radius: 12px; padding: 18px; width: 100%; max-width: 760px; color: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-  .small-modal { max-width: 420px; }
-  .close { float: right; font-size: 24px; font-weight: bold; cursor: pointer; color: #00ffd5; }
-  .close:hover { color: #00bfa5; }
-  #categoryChart { max-width: 400px; max-height: 300px; margin: 0 auto; }
-  .gray { opacity: 0.45 !important; filter: grayscale(80%); }
-  .manage-scroll { max-height: 320px; overflow:auto; border-radius:8px; margin-top:10px; }
-  .manage-table td input[type="text"], .manage-table td input[type="number"], .manage-table td input[type="date"], .manage-table td input[list]{
-    width: 100%; box-sizing: border-box; background:#222; color:#fff; padding:6px; border-radius:6px; border:1px solid #333;
-  }
-  @media (max-width: 640px){
-    .modal-content { padding: 12px; max-width: 95%; }
-    th, td { padding: 8px; font-size: 13px; }
-  }
-  .auth-info { display:flex; gap:8px; align-items:center; }
-  .user-avatar { width:34px; height:34px; border-radius:50%; object-fit:cover; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget Tracker</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 10px;
+    }
+
+    .auth-container {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .auth-container img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+    }
+
+    h2 {
+      margin-top: 30px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+
+    th {
+      background: #f0f0f0;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 8px 12px;
+    }
+
+    .chart {
+      max-width: 600px;
+      margin-top: 20px;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
-<h1>cash tracker</h1>
-<div class="top-bar">
-  <div style="display:flex; gap:12px; align-items:center;">
-    <label>Currency:
-      <select id="currency" onchange="changeCurrency()">
-        <option value="$">USD ($)</option>
-        <option value="€">EUR (€)</option>
-        <option value="£">GBP (£)</option>
-        <option value="¥">JPY (¥)</option>
-        <option value="¥">CNY (¥)</option>
-        <option value="₽">RUB (₽)</option>
-        <option value="₸">KZT (₸)</option>
-      </select>
-    </label>
+  <!-- AUTH UI -->
+  <div class="auth-container">
+    <span id="user-info"></span>
+    <button id="login-btn">Login</button>
+    <button id="logout-btn" style="display:none;">Logout</button>
   </div>
-  <div style="display:flex; align-items:center; gap:12px;">
-    <div id="totalBalance">Total Balance: $0</div>
-    <div id="authArea" class="auth-info">
-      <!-- Filled by JS -->
-      <button id="loginBtn" onclick="signIn()">Login</button>
-      <button id="logoutBtn" onclick="logout()" style="display:none">Logout</button>
-    </div>
-  </div>
-</div>
 
-<div class="card">
-  <button onclick="openModal()">Add Entry</button>
-  <button onclick="clearAll()">Clear All</button>
-  <button onclick="exportData()">Export Data</button>
-  <input type="file" id="importFile" style="display:none" onchange="importData(event)">
-  <button onclick="document.getElementById('importFile').click()">Import Data</button>
-  <button onclick="openRepeatModal()">Add Repeating Entry</button>
-  <button onclick="openManageRepeats()">Manage Repeating Entries</button>
-</div>
+  <h1>Budget Tracker</h1>
 
-<div class="card">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-    <button onclick="prevMonth()">&larr; Previous Month</button>
-    <div id="monthLabel">All Time</div>
-    <button onclick="nextMonth()">Next Month &rarr;</button>
+  <!-- Entry Form -->
+  <div>
+    <input id="text-input" placeholder="Description" />
+    <input id="amount-input" type="number" placeholder="Amount" />
+    <select id="type-input">
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+    <button onclick="addEntry()">Add</button>
   </div>
-  <div id="monthBalance">Monthly Balance: $0</div>
+
+  <!-- Entries Table -->
   <table>
     <thead>
-      <tr>
-        <th>Type</th><th>Reasoning</th><th>Amount</th><th>Category</th><th>Date</th><th>Actions</th>
-      </tr>
+      <tr><th>Description</th><th>Amount</th><th>Type</th><th>Date</th><th></th></tr>
     </thead>
-    <tbody id="entries"></tbody>
+    <tbody id="entries-body"></tbody>
   </table>
-</div>
 
-<div class="card">
-  <canvas id="categoryChart"></canvas>
-</div>
+  <h2>Chart</h2>
+  <canvas id="budget-chart" class="chart"></canvas>
 
-<!-- Entry Modal -->
-<div id="entryModal" class="modal">
-  <div class="modal-content small-modal">
-    <span class="close" onclick="closeModal()">&times;</span>
-    <h2 id="modalTitle">New Entry</h2>
-    <label>Type:</label>
-    <select id="type">
-      <option value="income">Income</option>
-      <option value="expense">Expense</option>
-    </select>
-    <label>Reasoning (optional):</label>
-    <input type="text" id="reason" placeholder="Description">
-    <label>Amount*:</label>
-    <input type="number" id="amount" placeholder="Amount">
-    <label>Category (optional):</label>
-    <input list="categoryList" id="category" placeholder="Type or select category">
-    <datalist id="categoryList"></datalist>
-    <label>Date (optional):</label>
-    <input type="date" id="date">
-    <button onclick="saveEntry()">Save</button>
-  </div>
-</div>
+  <!-- Firebase + App Logic -->
+  <script type="module">
+    import {
+      initializeApp
+    } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 
-<!-- Repeat Entry Modal -->
-<div id="repeatModal" class="modal">
-  <div class="modal-content small-modal">
-    <span class="close" onclick="closeRepeatModal()">&times;</span>
-    <h2>New Repeating Entry</h2>
-    <label>Type:</label>
-    <select id="repeatType">
-      <option value="income">Income</option>
-      <option value="expense">Expense</option>
-    </select>
-    <label>Reasoning:</label>
-    <input type="text" id="repeatReason" placeholder="Description">
-    <label>Amount*:</label>
-    <input type="number" id="repeatAmount" placeholder="Amount">
-    <label>Category:</label>
-    <input list="categoryList" id="repeatCategory" placeholder="Type or select category">
-    <label>Start Date:</label>
-    <input type="date" id="repeatStartDate">
-    <label>End Date (optional):</label>
-    <input type="date" id="repeatEndDate">
-    <button onclick="saveRepeatEntry()">Save Repeating Entry</button>
-  </div>
-</div>
+    import {
+      getAuth,
+      onAuthStateChanged,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
 
-<!-- Manage Repeats Modal (wider, with scrollable table) -->
-<div id="manageRepeatsModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeManageRepeats()">&times;</span>
-    <h2>Manage Repeating Entries</h2>
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-    <div class="manage-scroll">
-      <table class="manage-table">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Reason</th>
-            <th>Amount</th>
-            <th>Category</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="manageRepeatsBody"></tbody>
-      </table>
-    </div>
+    /* ==========================
+          FIREBASE CONFIG
+    ========================== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyAdSi-qkPcE87rJ8oFkoGW4VkxRBB3lZUI",
+      authDomain: "budget-5cc5d.firebaseapp.com",
+      projectId: "budget-5cc5d",
+      storageBucket: "budget-5cc5d.firebasestorage.app",
+      messagingSenderId: "673151458646",
+      appId: "1:673151458646:web:367647956075168a303310"
+    };
 
-    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-      <button onclick="closeManageRepeats()">Close</button>
-    </div>
-  </div>
-</div>
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
 
-<!-- Monthly Balance Modal -->
-<div id="monthlyBalanceModal" class="modal">
-  <div class="modal-content" style="width: 95%; max-width: 900px;">
-    <span class="close" onclick="closeMonthlyBalanceModal()">&times;</span>
-    <h2>Monthly Total Balance</h2>
-    <div id="chartWrapper" style="overflow-x:auto; cursor: grab;">
-      <canvas id="monthlyBalanceChart" height="300"></canvas>
-    </div>
-  </div>
-</div>
 
-<!-- Firebase + App logic -->
-<script type="module">
-// ----- FIREBASE SDK (v9 modular) -----
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
+    /* ==========================
+          APP STATE
+    ========================== */
+    let entries = [];
+    let unsubscribe = null; // Firestore listener
 
-// ----- YOUR FIREBASE CONFIG (use your own or the one you pasted) -----
-const firebaseConfig = {
-  apiKey: "AIzaSyC76V6iCBNNAwDQI2i7IuQKWSSAOuPC-eA",
-  authDomain: "budgettracker-260e6.firebaseapp.com",
-  projectId: "budgettracker-260e6",
-  storageBucket: "budgettracker-260e6.firebasestorage.app",
-  messagingSenderId: "583347664104",
-  appId: "1:583347664104:web:8372c2d4debd2460fe855d",
-  measurementId: "G-Z7VET0VF3S"
-};
 
-// Initialize
-const app = initializeApp(firebaseConfig);
-try { getAnalytics(app); } catch(e){ /* analytics may fail on local */ }
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-const db = getFirestore(app);
+    /* ==========================
+          AUTH FUNCTIONS
+    ========================== */
 
-// ----- App state -----
-let entries = [];
-let repeatingEntries = [];
-let editIndex = null;
-let currency = "$";
-let selectedMonth = null;
-let chart = null;
-let user = null;
-let userUnsubscribe = null; // firestore listener unsub
-const today = new Date();
-selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    async function signIn() {
+      await signInWithPopup(auth, provider);
+    }
 
-// ----- Auth UI -----
-const loginBtn = document.getElementById('loginBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const authArea = document.getElementById('authArea');
+    // FIX: Provide login() alias to avoid SES error
+    function login() {
+      return signIn();
+    }
 
-async function signIn(){
-  try{
-    await signInWithPopup(auth, provider);
-  }catch(e){ console.error('Login failed', e); alert('Login failed: ' + e.message); }
-}
-async function logout(){
-  try{ await signOut(auth); }catch(e){ console.error(e); }
-}
+    async function logout() {
+      await signOut(auth);
+    }
 
-onAuthStateChanged(auth, async (u)=>{
-  user = u;
-  if(user){
-    loginBtn.style.display = 'none';
-    logoutBtn.style.display = 'inline-block';
 
-    // show avatar + name
-    renderUserInfo(user);
+    /* ==========================
+        FIREBASE LOAD + SAVE
+    ========================== */
 
-    // subscribe to Firestore document for this user
-    const userDoc = doc(db, 'users', user.uid);
-    if(userUnsubscribe) userUnsubscribe();
-    userUnsubscribe = onSnapshot(userDoc, (snap) => {
-      if(snap.exists()){
+    async function loadUserData(uid) {
+      if (!uid) return;
+
+      const ref = doc(db, "users", uid);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
         const data = snap.data();
         entries = data.entries || [];
-        repeatingEntries = data.repeatingEntries || [];
-        currency = data.currency || currency;
-        document.getElementById('currency').value = currency;
-        saveToLocal();
-        renderEntries();
       } else {
-        // if no doc yet, push local -> firestore
-        setDoc(userDoc, { entries, repeatingEntries, currency }, { merge: true }).catch(console.error);
+        await setDoc(ref, { entries: [] });
+        entries = [];
       }
-    }, (err)=>{ console.error('listener err', err); });
 
-  } else {
-    // logged out
-    loginBtn.style.display = 'inline-block';
-    logoutBtn.style.display = 'none';
-    clearUserInfo();
-    if(userUnsubscribe) { userUnsubscribe(); userUnsubscribe = null; }
-    // load local data
-    loadFromLocal();
-    renderEntries();
-  }
-});
-
-function renderUserInfo(u){
-  // remove previous avatar if exists
-  const existing = document.querySelector('.user-avatar');
-  if(existing) existing.remove();
-  const img = document.createElement('img');
-  img.src = u.photoURL || '';
-  img.alt = u.displayName || 'User';
-  img.className = 'user-avatar';
-  authArea.insertBefore(img, authArea.firstChild);
-}
-function clearUserInfo(){
-  const existing = document.querySelector('.user-avatar');
-  if(existing) existing.remove();
-}
-
-// ----- Local storage fallback -----
-function saveToLocal(){
-  localStorage.setItem('budgetEntries', JSON.stringify({ entries, currency }));
-  localStorage.setItem('budgetRepeats', JSON.stringify(repeatingEntries));
-}
-function loadFromLocal(){
-  if(localStorage.getItem('budgetEntries')){
-    const saved = JSON.parse(localStorage.getItem('budgetEntries'));
-    entries = saved.entries || [];
-    currency = saved.currency || currency;
-    document.getElementById('currency').value = currency;
-  }
-  if(localStorage.getItem('budgetRepeats')){
-    repeatingEntries = JSON.parse(localStorage.getItem('budgetRepeats')) || [];
-  }
-}
-// load initial local data until auth state decides otherwise
-loadFromLocal();
-
-// ----- Firestore save / debounce -----
-let saveTimer = null;
-function debounceSaveToFirestore(ms=800){
-  if(!user) { saveToLocal(); return; }
-  if(saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(async ()=>{
-    try{
-      const userDoc = doc(db, 'users', user.uid);
-      await setDoc(userDoc, { entries, repeatingEntries, currency }, { merge: true });
-    }catch(e){ console.error('save failed', e); }
-  }, ms);
-}
-
-// ----- Existing app logic (mostly preserved) -----
-function changeCurrency(){
-  currency = document.getElementById('currency').value;
-  saveData();
-  renderEntries();
-}
-
-function openModal(edit=false, index=null){
-  document.getElementById('entryModal').style.display = 'flex';
-  if(edit && index!==null){
-    editIndex = index;
-    const e = entries[index];
-    document.getElementById('modalTitle').innerText = 'Edit Entry';
-    document.getElementById('type').value = e.type;
-    document.getElementById('reason').value = e.reason;
-    document.getElementById('amount').value = e.amount;
-    document.getElementById('category').value = e.category;
-    document.getElementById('date').value = e.date;
-  } else {
-    editIndex = null;
-    document.getElementById('modalTitle').innerText = 'New Entry';
-    clearInputs();
-  }
-}
-function closeModal(){ document.getElementById('entryModal').style.display = 'none'; }
-
-function saveEntry(){
-  const type = document.getElementById('type').value;
-  const reason = document.getElementById('reason').value.trim();
-  const amount = parseFloat(document.getElementById('amount').value);
-  const category = document.getElementById('category').value.trim();
-  let date = document.getElementById('date').value;
-
-  if(!amount || amount <= 0){ alert('Amount required and > 0'); return; }
-  if(!date){
-    const d = new Date();
-    date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  const entry = { type, reason, amount, category, date };
-
-  if(editIndex !== null) entries[editIndex] = entry;
-  else entries.push(entry);
-
-  saveData();
-  renderEntries();
-  closeModal();
-  clearInputs();
-}
-
-function openRepeatModal(){ document.getElementById('repeatModal').style.display='flex'; resetRepeatInputs(); }
-function closeRepeatModal(){ document.getElementById('repeatModal').style.display='none'; }
-
-function resetRepeatInputs(){
-  document.getElementById('repeatType').value = 'income';
-  document.getElementById('repeatReason').value = '';
-  document.getElementById('repeatAmount').value = '';
-  document.getElementById('repeatCategory').value = '';
-  document.getElementById('repeatStartDate').value = '';
-  document.getElementById('repeatEndDate').value = '';
-}
-
-function saveRepeatEntry(){
-  const type = document.getElementById('repeatType').value;
-  const reason = document.getElementById('repeatReason').value.trim();
-  const amount = parseFloat(document.getElementById('repeatAmount').value);
-  const category = document.getElementById('repeatCategory').value.trim();
-  const start = document.getElementById('repeatStartDate').value;
-  const end = document.getElementById('repeatEndDate').value || null;
-
-  if(!amount || amount <= 0 || !start){ alert('Amount and start date required'); return; }
-
-  repeatingEntries.push({ type, reason, amount, category, start, end, excludeMonths: [] });
-  saveRepeats();
-  closeRepeatModal();
-  renderEntries();
-}
-
-function openManageRepeats(){
-  document.getElementById('manageRepeatsModal').style.display = 'flex';
-  const tbody = document.getElementById('manageRepeatsBody');
-  tbody.innerHTML = '';
-
-  repeatingEntries.forEach((r, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.type}</td>
-      <td><input type="text" value="${escapeHtml(r.reason||'')}" onchange="updateRepeatField(${i}, 'reason', this.value)"></td>
-      <td><input type="number" step="0.01" value="${r.amount}" onchange="updateRepeatField(${i}, 'amount', this.value)"></td>
-      <td><input list="categoryList" type="text" value="${escapeHtml(r.category||'')}" onchange="updateRepeatField(${i}, 'category', this.value)"></td>
-      <td><input type="date" value="${r.start}" onchange="updateRepeatField(${i}, 'start', this.value)"></td>
-      <td><input type="date" value="${r.end||''}" onchange="updateRepeatField(${i}, 'end', this.value||null)"></td>
-      <td><button onclick="deleteRepeat(${i})">Delete</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function escapeHtml(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function closeManageRepeats(){ document.getElementById('manageRepeatsModal').style.display='none'; }
-
-function deleteRepeat(i){
-  if(!confirm('Delete repeating entry?')) return;
-  repeatingEntries.splice(i,1);
-  saveRepeats();
-  openManageRepeats();
-  renderEntries();
-}
-
-function saveRepeats(){
-  // persist locally and to firestore when logged in
-  saveToLocal();
-  debounceSaveToFirestore();
-}
-
-function updateRepeatField(index, field, value){
-  if(index < 0 || index >= repeatingEntries.length) return;
-  if(field === 'amount'){
-    const num = parseFloat(value);
-    repeatingEntries[index].amount = Number.isFinite(num) ? num : 0;
-  } else if(field === 'end'){
-    repeatingEntries[index].end = value === '' || value === null ? null : value;
-  } else {
-    repeatingEntries[index][field] = value;
-  }
-  saveRepeats();
-}
-
-function getRepeatsForMonth(ym){
-  if(!ym) return [];
-  const [year, month] = ym.split('-');
-  const monthStr = `${year}-${month}`;
-
-  return repeatingEntries.flatMap(entry => {
-    const startMonth = entry.start.slice(0,7);
-    const endMonth = entry.end ? entry.end.slice(0,7) : null;
-
-    if(entry.excludeMonths && entry.excludeMonths.includes(monthStr)){
-      return [{ ...entry, date: monthStr + '-01', isRepeat: true, excluded: true }];
+      renderEntries();
+      renderChart();
     }
 
-    if(monthStr < startMonth) return [];
-    if(endMonth && monthStr > endMonth) return [];
+    // Debounced Firestore saving
+    let saveTimer = null;
+    function saveUserData(uid) {
+      if (!uid) return;
 
-    return [{ ...entry, date: monthStr + '-01', isRepeat: true, excluded: false }];
-  });
-}
-
-function toggleRepeat(reason, date){
-  const month = date.slice(0,7);
-  const entry = repeatingEntries.find(e => e.reason === reason);
-  if(!entry) return;
-  entry.excludeMonths = entry.excludeMonths || [];
-  const idx = entry.excludeMonths.indexOf(month);
-  if(idx >= 0) entry.excludeMonths.splice(idx,1);
-  else entry.excludeMonths.push(month);
-  saveRepeats();
-}
-
-function renderEntries(){
-  const tbody = document.getElementById('entries');
-  tbody.innerHTML = '';
-
-  const todayMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-  let totalBalance = 0;
-  let monthlyBalance = 0;
-
-  if(!selectedMonth) selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-
-  const filteredEntries = entries.filter(e => e.date.startsWith(selectedMonth));
-  const repeats = getRepeatsForMonth(selectedMonth);
-
-  const pastEntries = entries.filter(e => e.date.slice(0,7) <= todayMonth);
-
-  const pastRepeats = repeatingEntries.flatMap(entry => {
-    const months = [];
-    let cur = new Date(entry.start);
-    const end = entry.end ? new Date(entry.end) : today;
-
-    while(cur <= end && cur <= today){
-      const m = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-      if(!(entry.excludeMonths || []).includes(m)){
-        months.push({...entry, date: m + '-01', isRepeat: true});
-      }
-      cur.setMonth(cur.getMonth()+1);
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        const ref = doc(db, "users", uid);
+        await setDoc(ref, { entries }, { merge: true });
+      }, 300);
     }
-    return months;
-  });
 
-  totalBalance =
-    pastEntries.reduce((s,e) => s + (e.type === 'income' ? e.amount : -e.amount), 0) +
-    pastRepeats.reduce((s,e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
 
-  [...filteredEntries, ...repeats].forEach(entry => {
-    if(!entry.excluded) monthlyBalance += (entry.type === 'income' ? entry.amount : -entry.amount);
+    /* ==========================
+           AUTH STATE LISTENER
+    ========================== */
 
-    const tr = document.createElement('tr');
-    if(entry.excluded) tr.classList.add('gray');
+    onAuthStateChanged(auth, (user) => {
+      const info = document.getElementById("user-info");
+      const loginBtn = document.getElementById("login-btn");
+      const logoutBtn = document.getElementById("logout-btn");
 
-    const safeReason = (entry.reason || '').replace(/'/g, "\\'").replace(/\"/g, '&quot;');
-    const safeDate = entry.date;
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
 
-    tr.innerHTML = `
-      <td class="${entry.type}">${entry.type}${entry.isRepeat ? ' (R)' : ''}</td>
-      <td>${entry.reason ? escapeHtml(entry.reason) : '-'}</td>
-      <td>${currency}${Number(entry.amount).toFixed(2)}</td>
-      <td>${entry.category ? escapeHtml(entry.category) : '-'}</td>
-      <td>${entry.date}</td>
-      <td>$
-        ${entry.isRepeat
-          ? `<button onclick="toggleRepeat('${safeReason}','${safeDate}')">${entry.excluded ? 'Include' : 'Exclude'}</button>`
-          : `<button onclick="openModal(true, ${entries.indexOf(entry)})">✎</button>
-             <button onclick="deleteEntry(${entries.indexOf(entry)})">×</button>`
+      if (user) {
+        info.innerHTML = `<img src="${user.photoURL}"> ${user.displayName}`;
+        loginBtn.style.display = "none";
+        logoutBtn.style.display = "inline-block";
+
+        const ref = doc(db, "users", user.uid);
+
+        unsubscribe = onSnapshot(ref, (snap) => {
+          if (snap.exists()) {
+            entries = snap.data().entries || [];
+            renderEntries();
+            renderChart();
+          }
+        });
+
+      } else {
+        info.innerHTML = "";
+        loginBtn.style.display = "inline-block";
+        logoutBtn.style.display = "none";
+
+        entries = [];
+        renderEntries();
+        renderChart();
+      }
+    });
+
+    document.getElementById("login-btn").onclick = login;
+    document.getElementById("logout-btn").onclick = logout;
+
+
+    /* ==========================
+           UI / ACTIONS
+    ========================== */
+
+    function addEntry() {
+      const text = document.getElementById("text-input").value.trim();
+      const amount = parseFloat(document.getElementById("amount-input").value);
+      const type = document.getElementById("type-input").value;
+
+      if (!text || isNaN(amount)) return alert("Enter valid data.");
+
+      const entry = {
+        text,
+        amount,
+        type,
+        date: new Date().toISOString()
+      };
+
+      entries.push(entry);
+      renderEntries();
+      renderChart();
+
+      if (auth.currentUser) {
+        saveUserData(auth.currentUser.uid);
+      }
+    }
+
+    function deleteEntry(index) {
+      entries.splice(index, 1);
+      renderEntries();
+      renderChart();
+
+      if (auth.currentUser) {
+        saveUserData(auth.currentUser.uid);
+      }
+    }
+
+    function renderEntries() {
+      const tbody = document.getElementById("entries-body");
+      tbody.innerHTML = "";
+
+      entries.forEach((e, idx) => {
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${e.text}</td>
+          <td>${e.amount}</td>
+          <td>${e.type}</td>
+          <td>${new Date(e.date).toLocaleDateString()}</td>
+          <td><button onclick="deleteEntry(${idx})">X</button></td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+
+
+    /* ==========================
+              CHART
+    ========================== */
+
+    let chart = null;
+
+    function renderChart() {
+      const ctx = document.getElementById("budget-chart");
+
+      const income = entries.filter(e => e.type === "income").reduce((a,b)=>a+b.amount, 0);
+      const expense = entries.filter(e => e.type === "expense").reduce((a,b)=>a+b.amount, 0);
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: ["Income", "Expense"],
+          datasets: [{
+            data: [income, expense]
+          }]
         }
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
+      });
+    }
 
-  document.getElementById('totalBalance').innerText = `Total Balance: ${currency}${totalBalance.toFixed(2)}`;
-  document.getElementById('monthBalance').innerText = `Monthly Balance: ${currency}${monthlyBalance.toFixed(2)}`;
-  document.getElementById('monthLabel').innerText = selectedMonth ? formatMonthLabel(selectedMonth) : 'All Time';
-
-  updateCategoryList();
-  updateChart();
-}
-
-function formatMonthLabel(ym){ const [y,m] = ym.split('-'); const d = new Date(y, m-1); return d.toLocaleString('default', { month: 'long', year: 'numeric' }); }
-function clearInputs(){ document.getElementById('reason').value = ''; document.getElementById('amount').value = ''; document.getElementById('category').value = ''; document.getElementById('date').value = ''; }
-
-function saveData(){
-  // save locally immediately
-  saveToLocal();
-  // and attempt to save to firestore (debounced)
-  debounceSaveToFirestore();
-}
-
-function deleteEntry(index){ if(!confirm('Delete entry?')) return; entries.splice(index, 1); saveData(); renderEntries(); }
-function clearAll(){ if(!confirm('Clear EVERYTHING? This will remove entries and repeating entries.')) return; entries = []; repeatingEntries = []; saveToLocal(); debounceSaveToFirestore(); renderEntries(); }
-
-function exportData(){ const dataStr = JSON.stringify({ entries, currency, repeatingEntries }, null, 2); const blob = new Blob([dataStr], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'budget_data.json'; a.click(); URL.revokeObjectURL(url); }
-
-function importData(evt){ const file = evt.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e){ try { const data = JSON.parse(e.target.result); entries = data.entries || []; currency = data.currency || "$"; repeatingEntries = data.repeatingEntries || []; document.getElementById('currency').value = currency; saveData(); saveRepeats(); renderEntries(); alert('Data imported.'); } catch(err){ alert('Invalid file.'); } }; reader.readAsText(file); }
-
-function updateCategoryList(){ const list = document.getElementById('categoryList'); list.innerHTML = ''; const cats = new Set(); entries.forEach(e => { if(e.category) cats.add(e.category); }); repeatingEntries.forEach(r => { if(r.category) cats.add(r.category); }); cats.forEach(c => { const opt = document.createElement('option'); opt.value = c; list.appendChild(opt); }); }
-
-function updateChart() {
-  const canvas = document.getElementById('categoryChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const monthEntries = selectedMonth
-    ? entries.filter(e => e.date.startsWith(selectedMonth))
-        .concat(getRepeatsForMonth(selectedMonth).filter(r => !r.excluded))
-    : entries.concat(getRepeatsForMonth(currentMonth).filter(r => !r.excluded));
-
-  const labels = [...new Set(monthEntries.map(e => e.category).filter(Boolean))];
-  if (labels.length === 0) { if (chart) chart.destroy(); return; }
-
-  const pastelColors = ['#A3C9F9','#FFB5C8','#FBE7A1','#C8E7C5','#E6C7F1','#FFD9B3','#B8F2E0','#F2C6DE'];
-  const data = labels.map(cat => monthEntries.filter(e => e.category === cat).reduce((sum, e) => sum + (e.type === 'income' ? e.amount : -e.amount), 0));
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'pie',
-    data: { labels, datasets: [{ data, backgroundColor: pastelColors.slice(0, labels.length) }] },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 13 } } } } }
-  });
-}
-
-function prevMonth(){ const d = new Date(selectedMonth + '-01'); d.setMonth(d.getMonth() - 1); selectedMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; renderEntries(); }
-function nextMonth(){ const d = new Date(selectedMonth + '-01'); d.setMonth(d.getMonth() + 1); selectedMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; renderEntries(); }
-
-function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-window.onclick = function(e){ if(e.target === document.getElementById('entryModal')) closeModal(); if(e.target === document.getElementById('repeatModal')) closeRepeatModal(); if(e.target === document.getElementById('manageRepeatsModal')) closeManageRepeats(); };
-
-renderEntries();
-
-let monthlyChart = null;
-const chartWrapper = document.getElementById('chartWrapper');
-let isDragging = false; let startX, scrollLeft;
-if(chartWrapper){
-  chartWrapper.addEventListener('mousedown', (e) => { isDragging = true; chartWrapper.style.cursor = 'grabbing'; startX = e.pageX - chartWrapper.offsetLeft; scrollLeft = chartWrapper.scrollLeft; });
-  chartWrapper.addEventListener('mouseleave', () => { isDragging = false; chartWrapper.style.cursor = 'grab'; });
-  chartWrapper.addEventListener('mouseup', () => { isDragging = false; chartWrapper.style.cursor = 'grab'; });
-  chartWrapper.addEventListener('mousemove', (e) => { if (!isDragging) return; e.preventDefault(); const x = e.pageX - chartWrapper.offsetLeft; chartWrapper.scrollLeft = scrollLeft + (startX - x); });
-}
-
-document.getElementById('totalBalance').onclick = function() { document.getElementById('monthlyBalanceModal').style.display = 'flex'; renderMonthlyBalanceChart(); };
-function closeMonthlyBalanceModal() { document.getElementById('monthlyBalanceModal').style.display = 'none'; }
-
-function renderMonthlyBalanceChart() {
-  const ctx = document.getElementById('monthlyBalanceChart').getContext('2d');
-  const allEntries = entries.concat(
-    repeatingEntries.flatMap(entry => {
-      const months = []; let current = new Date(entry.start); const end = entry.end ? new Date(entry.end) : today;
-      while(current <= end){ const monthStr = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}`; if(!entry.excludeMonths.includes(monthStr)){ months.push({ ...entry, date: monthStr+'-01', isRepeat:true }); } current.setMonth(current.getMonth()+1); }
-      return months;
-    })
-  );
-
-  const monthSet = new Set(allEntries.map(e => e.date.slice(0,7)));
-  const months = Array.from(monthSet).sort();
-  let cumulative = 0;
-  const totalBalances = months.map(month => { const monthEntries = entries.filter(e => e.date.startsWith(month)).concat(getRepeatsForMonth(month).filter(r => !r.excluded)); const monthSum = monthEntries.reduce((sum,e)=>sum + (e.type==='income'?e.amount:-e.amount),0); cumulative += monthSum; return cumulative; });
-
-  if(monthlyChart) monthlyChart.destroy();
-  const canvasWidth = Math.max(12*80, months.length*80);
-  const canvas = document.getElementById('monthlyBalanceChart'); canvas.style.width = canvasWidth + 'px'; canvas.style.height = '300px';
-
-  monthlyChart = new Chart(ctx, {
-    type: 'line', data: { labels: months.map(m => { const [y,mon] = m.split('-'); const d = new Date(y, mon-1); return d.toLocaleString('default', { month:'short', year:'numeric' }); }), datasets: [{ label: 'Total Balance', data: totalBalances, borderColor: '#AEC6CF', backgroundColor: 'rgba(174,198,207,0.3)', fill: true, tension: 0.3, pointRadius: 4, pointHoverRadius: 6 }] },
-    options: { responsive: false, maintainAspectRatio: false, scales: { x: { ticks: { maxRotation: 45, minRotation: 45 }, grid: { display: false } }, y: { beginAtZero: false, grid: { color: '#444' } } }, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } } }
-  });
-
-  setTimeout(()=> {
-    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-    const index = months.indexOf(currentMonthStr);
-    if(index >= 0){ const monthWidth = 80; chartWrapper.scrollLeft = Math.max(0, monthWidth*index - chartWrapper.clientWidth + monthWidth); } else { chartWrapper.scrollLeft = chartWrapper.scrollWidth - chartWrapper.clientWidth; }
-  }, 50);
-}
-
-// ----- Initial save/load helpers for firestore when user logs in/out -----
-function saveToLocal(){ localStorage.setItem('budgetEntries', JSON.stringify({ entries, currency })); localStorage.setItem('budgetRepeats', JSON.stringify(repeatingEntries)); }
-function loadFromLocal(){ if(localStorage.getItem('budgetEntries')){ const saved = JSON.parse(localStorage.getItem('budgetEntries')); entries = saved.entries || []; currency = saved.currency || currency; document.getElementById('currency').value = currency; } if(localStorage.getItem('budgetRepeats')){ repeatingEntries = JSON.parse(localStorage.getItem('budgetRepeats')) || []; } }
-
-</script>
+  </script>
 
 </body>
 </html>
