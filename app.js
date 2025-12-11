@@ -637,15 +637,15 @@ function renderEntries(){
         const safeDate = entry.date;
         
         rowHtml = `
-            <td class="reason-cell">${reasonHtml}</td>
+            <td class="reason-cell"><span style="font-size:0.8em;">(R)</span>${reasonHtml}</td>
             <td class="amount-cell" style="font-weight:bold;">${amountHtml}</td>
             <td class="date-cell">
-                ${dateDay} <span style="font-size:0.8em;">(R)</span>
+                ${dateDay} 
                 <button 
                     onclick="toggleRepeat('${repeatId}','${safeDate}')" 
                     style="margin-top: 5px; padding: 5px 8px; font-size: 0.8em; display:block; margin-left:auto; margin-right:auto; white-space:nowrap;"
                 >
-                    ${entry.excluded ? '<i class="bi bi-eye-fill"></i> Include' : '<i class="bi bi-eye-slash-fill"></i> Exclude'}
+                    ${entry.excluded ? '<i class="bi bi-eye-fill"></i>' : '<i class="bi bi-eye-slash-fill"></i>'}
                 </button>
             </td>
         `;
