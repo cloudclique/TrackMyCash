@@ -19,7 +19,7 @@ h1 {
 }
 .top-bar { 
     width: 100%; 
-    max-width: 900px; 
+    max-width: 1200px; 
     display:flex; 
     justify-content: space-between; 
     align-items:center; 
@@ -31,9 +31,91 @@ h1 {
     border-radius: 16px; 
     box-shadow: 0 8px 24px rgba(0,0,0,0.6); 
     width: 100%; 
-    max-width: 900px; 
+    max-width: none; 
     margin-bottom: 20px; 
 }
+/* --- NEW STYLES FOR manage_repeats.html --- */
+.main-content-wrapper {
+    width: 100%;
+    max-width: 1200px;
+}
+.full-width-card {
+    max-width: 100%;
+    margin-top: 20px;
+}
+.back-button {
+    font-size: 1.1em;
+    color: #00ffd5;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+    font-weight: bold;
+}
+.back-button:hover {
+    color: #00bfa5;
+}
+.button-as-link { 
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    padding: 10px 20px; 
+    margin: 5px 0; 
+    border-radius: 12px; 
+    border: none; 
+    cursor: pointer; 
+    background: #00ffd5; 
+    color: #121212 !important; 
+    font-weight: bold; 
+    transition: 0.25s; 
+    width: 100%;
+}
+.button-as-link:hover { 
+    background: #00bfa5; 
+}
+/* --- END NEW STYLES --- */
+
+/* --- 3-Column Layout (for index.html) --- */
+.main-grid {
+    width: 100%;
+    max-width: 1200px; 
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr; 
+    gap: 20px;
+}
+.right-column-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.main-table-card {
+    grid-column: 1 / 2; 
+    max-height: 70vh; 
+    overflow: hidden;
+    padding-bottom: 0; 
+}
+.chart-card {
+    grid-column: 2 / 3; 
+}
+.right-column-container {
+    grid-column: 3 / 4; 
+}
+.controls-card button {
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+.controls-card button:first-child {
+    margin-top: 0;
+}
+.entry-table-scroll {
+    overflow-y: auto; 
+    max-height: calc(70vh - 120px); 
+}
+/* --- END 3-Column Layout --- */
+
+
 select, input { 
     width: 100%; 
     padding: 10px; 
@@ -66,21 +148,19 @@ table {
     border-collapse: collapse; 
     border-radius: 12px; 
     overflow: hidden; 
-    table-layout: fixed; /* FIX: Ensures column widths are strictly enforced */
+    table-layout: fixed; 
 }
 th, td { 
     padding: 12px; 
     text-align: center;
 }
 
-/* Updated column proportions: 65% Reasoning, 25% Amount, 10% Date */
 th:nth-child(1), td:nth-child(1) {
     text-align: left;
-    width: 65%; /* 65% for Reasoning */
+    width: 65%; 
     overflow: hidden; 
 }
 
-/* Styles for the reasoning text to truncate with ellipsis */
 .main-reason {
     display: block; 
     overflow: hidden;
@@ -89,12 +169,12 @@ th:nth-child(1), td:nth-child(1) {
 }
 
 th:nth-child(2), td:nth-child(2) {
-    width: 120px; /* 25% for Amount */
+    width: 120px; 
     font-weight: bold; 
 }
 
 th:nth-child(3), td:nth-child(3) {
-    width: 50px; /* 10% for Date */
+    width: 50px; 
 }
 
 th { 
@@ -112,7 +192,6 @@ tr:hover {
     background: #2a2a2a; 
 }
 
-/* Category text under reasoning */
 .category-text {
     display: block;
     font-size: 0.75em;
@@ -121,12 +200,11 @@ tr:hover {
     font-style: italic;
 }
 
-/* Income and Expense colors for the Amount column */
 .income { 
-    color: #00ff7f; /* Green */
+    color: #00ff7f; 
 }
 .expense { 
-    color: #ff4c4c; /* Red */
+    color: #ff4c4c; 
 }
 #totalBalance { 
     font-size: 1.5em; 
@@ -171,29 +249,26 @@ tr:hover {
     color: #00bfa5; 
 }
 #categoryChart { 
-    max-width: 400px; 
-    max-height: 300px; 
+    max-width: 100%; 
+    max-height: 100%; 
     margin: 0 auto; 
 }
 .gray { 
     opacity: 0.45 !important; 
     filter: grayscale(80%); 
 }
-/* Manage repeats scroll container */
 .manage-scroll { 
-    max-height: 320px; 
+    max-height: 480px; /* Increased height for full page */
     overflow:auto; 
     border-radius:8px; 
     margin-top:10px; 
 }
 
-/* Redefine table layout for better spacing in the management modal */
 .manage-table {
-    table-layout: auto; /* Allow content to dictate width, then constrain parent */
-    min-width: 740px; /* Ensure table is wide enough to show all columns */
+    table-layout: auto; 
+    min-width: 740px; 
 }
 
-/* Style the inputs within the management table */
 .manage-table td input[type="text"], 
 .manage-table td input[type="number"], 
 .manage-table td input[type="date"], 
@@ -206,30 +281,60 @@ tr:hover {
     padding:6px; 
     border-radius:6px; 
     border:1px solid #333;
-    /* Reset margins for clean table look */
     margin-bottom: 0; 
 }
 
-/* Adjust column widths in the Manage Repeating Entries table */
 .manage-table th, .manage-table td {
     padding: 8px;
     text-align: center;
 }
-.manage-table th:nth-child(1), .manage-table td:nth-child(1) { width: 15%; } /* Type */
-.manage-table th:nth-child(2), .manage-table td:nth-child(2) { width: 25%; } /* Reason */
-.manage-table th:nth-child(3), .manage-table td:nth-child(3) { width: 10%; } /* Amount */
-.manage-table th:nth-child(4), .manage-table td:nth-child(4) { width: 15%; } /* Category */
-.manage-table th:nth-child(5), .manage-table td:nth-child(5) { width: 15%; } /* Start */
-.manage-table th:nth-child(6), .manage-table td:nth-child(6) { width: 15%; } /* End */
-.manage-table th:nth-child(7), .manage-table td:nth-child(7) { width: 5%; }  /* Actions (Delete button) */
+.manage-table th:nth-child(1), .manage-table td:nth-child(1) { width: 8%; } 
+.manage-table th:nth-child(2), .manage-table td:nth-child(2) { width: 18%; } 
+.manage-table th:nth-child(3), .manage-table td:nth-child(3) { width: 10%; } 
+.manage-table th:nth-child(4), .manage-table td:nth-child(4) { width: 12%; } 
+.manage-table th:nth-child(5), .manage-table td:nth-child(5) { width: 8%; } 
+.manage-table th:nth-child(6), .manage-table td:nth-child(6) { width: 10%; } 
+.manage-table th:nth-child(7), .manage-table td:nth-child(7) { width: 10%; } 
+.manage-table th:nth-child(8), .manage-table td:nth-child(8) { width: 10%; } 
+.manage-table th:nth-child(9), .manage-table td:nth-child(9) { width: 10%; } 
 
-/* Style the delete button */
+
 .manage-table td button {
     padding: 4px 8px; 
     font-size: 0.8em;
     background: #ff4c4c;
     color: #121212;
     margin: 0;
+}
+
+@media (max-width: 950px){
+    .main-grid {
+        grid-template-columns: 1fr; 
+        gap: 10px;
+    }
+    .main-table-card {
+        grid-column: 1 / 1;
+        max-height: none; 
+        padding-bottom: 20px; 
+    }
+    .chart-card {
+        grid-column: 1 / 1;
+    }
+    .right-column-container {
+        grid-column: 1 / 1;
+        flex-direction: row; 
+    }
+    .controls-card, .balance-card {
+        width: 50%;
+        margin-bottom: 0;
+    }
+    .controls-card button {
+        margin-top: 5px;
+    }
+    .entry-table-scroll {
+        max-height: none;
+        overflow-y: hidden; 
+    }
 }
 @media (max-width: 640px){
     .modal-content { 
@@ -239,5 +344,12 @@ tr:hover {
     th, td { 
         padding: 8px; 
         font-size: 13px; 
+    }
+    .right-column-container {
+        flex-direction: column; 
+    }
+    .controls-card, .balance-card {
+        width: 100%;
+        margin-bottom: 10px;
     }
 }

@@ -55,36 +55,53 @@
   <div id="totalBalance">Total Balance: $0</div>
 </div>
 
-<div class="card">
-  <button onclick="openModal()"><i class="bi bi-plus-square-fill"></i></button>
-  |
-  <button onclick="openRepeatModal()"><svg class="icon" width="20" height="20" style="margin-bottom: -3px;"><use href="#repeat_add" ></use></svg></button>
-  <button onclick="openManageRepeats()"><svg class="icon" width="20" height="20" style="margin-bottom: -5px;"><use href="#repeat_manage"></use></svg></button>
-</div>
-
-<div class="card">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-    <button onclick="prevMonth()"><i class="bi bi-arrow-left-short"></i></button>
-    <div id="monthLabel">All Time</div>
-    <button onclick="nextMonth()"><i class="bi bi-arrow-right-short"></i></button>
+<div class="main-grid">
+  
+  <div class="card main-table-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <button onclick="prevMonth()"><i class="bi bi-arrow-left-short"></i></button>
+      <div id="monthLabel">All Time</div>
+      <button onclick="nextMonth()"><i class="bi bi-arrow-right-short"></i></button>
+    </div>
+    <div id="monthBalance">Monthly Balance: $0</div>
+    <div class="entry-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th><i class="bi bi-chat-square-text-fill"></i></th>
+            <th><i class="bi bi-cash-stack"></i></th>
+            <th><i class="bi bi-calendar-date-fill"></i></th>
+          </tr>
+        </thead>
+        <tbody id="entries"></tbody>
+      </table>
+    </div>
   </div>
-  <div id="monthBalance">Monthly Balance: $0</div>
-  <table>
-    <thead>
-      <tr>
-        <th><i class="bi bi-chat-square-text-fill"></i></th>
-        <th><i class="bi bi-cash-stack"></i></th>
-        <th><i class="bi bi-calendar-date-fill"></i></th>
-      </tr>
-    </thead>
-    <tbody id="entries"></tbody>
-  </table>
-</div>
 
-<div class="card">
-  <canvas id="categoryChart"></canvas>
-</div>
+  <div class="card chart-card">
+    <canvas id="categoryChart"></canvas>
+  </div>
 
+  <div class="right-column-container">
+    <div class="card controls-card">
+      <button onclick="openModal()"><i class="bi bi-plus-square-fill"></i> New Entry</button>
+      <button onclick="openRepeatModal()"><svg class="icon" width="20" height="20" style="margin-bottom: -3px;"><use href="#repeat_add" ></use></svg> New Repeat</button>
+      <a href="./manage-repeats" class="button-as-link">
+        <svg class="icon" width="20" height="20" style="margin-bottom: -5px;"><use href="#repeat_manage"></use></svg> Manage Repeats
+      </a>
+    </div>
+    
+    <div class="card balance-card">
+        <h3 style="text-align:center; margin-bottom: 10px;">Monthly Total Balance</h3>
+        <p style="text-align:center; font-size:0.9em; color:#00ffd5; margin-bottom:15px;">
+            *Click "Total Balance" above for full chart*
+        </p>
+        <div id="monthlyBalancePreview" style="height: 120px;">
+             </div>
+    </div>
+  </div>
+
+</div>
 <div id="authModal" class="modal">
     <div class="modal-content small-modal">
         <span class="close" onclick="closeAuthModal()">&times;</span>
@@ -150,42 +167,31 @@
     <input type="number" id="repeatAmount" placeholder="Amount">
     <label>Category:</label>
     <input list="categoryList" id="repeatCategory" placeholder="Type or select category">
+    
+    <div style="display:flex; gap:10px;">
+        <div style="flex-grow:1;">
+            <label>Repeats every:</label>
+            <input type="number" id="repeatInterval" placeholder="1" value="1" min="1" style="margin-bottom:0;">
+        </div>
+        <div style="flex-grow:1;">
+            <label>Frequency:</label>
+            <select id="repeatFrequency">
+                <option value="days">Day(s)</option>
+                <option value="weeks">Week(s)</option>
+                <option value="months" selected>Month(s)</option>
+                <option value="years">Year(s)</option>
+            </select>
+        </div>
+    </div>
+    
     <label>Start Date:</label>
     <input type="date" id="repeatStartDate">
     <label>End Date (optional):</label>
     <input type="date" id="repeatEndDate">
     <button onclick="saveRepeatEntry()">Save Repeating Entry</button>
     <p style="text-align:center; margin-top:10px; font-size: 0.8em; color: #999;">
-            Repeating entries are applied monthly starting on the 1st.
+            Repeating entries will be generated based on the start date and chosen frequency.
         </p>
-  </div>
-</div>
-
-<div id="manageRepeatsModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeManageRepeats()">&times;</span>
-    <h2>Manage Repeating Entries</h2>
-
-    <div class="manage-scroll">
-      <table class="manage-table">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Reason</th>
-            <th>Amount</th>
-            <th>Category</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="manageRepeatsBody"></tbody>
-      </table>
-    </div>
-
-    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-      <button onclick="closeManageRepeats()">Close</button>
-    </div>
   </div>
 </div>
 
