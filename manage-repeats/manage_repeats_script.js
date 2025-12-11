@@ -10,7 +10,7 @@ import {
     loadData,
     auth,
     userSignOut // Import sign out to be available on this page
-} from './app.js';
+} from '../app.js';
 
 // Expose functions for inline HTML event handlers
 window.deleteRepeat = deleteRepeat;
