@@ -637,7 +637,7 @@ function renderEntries(){
         const safeDate = entry.date;
         
         rowHtml = `
-            <td class="reason-cell"><span style="font-size:0.8em;">(R)</span>${reasonHtml}</td>
+            <td class="reason-cell">(R)${reasonHtml}</td>
             <td class="amount-cell" style="font-weight:bold;">${amountHtml}</td>
             <td class="date-cell">
                 ${dateDay} 
