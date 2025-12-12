@@ -2,7 +2,7 @@
 /* --- 1. FIREBASE SETUP & IMPORTS -------------------------------------- */
 /* ---------------------------------------------------------------------- */
 
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
@@ -21,7 +21,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app); // EXPORTED
 export const db = getFirestore(app); // EXPORTED
-export { initializeApp, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, sendEmailVerification, GoogleAuthProvider, signInWithPopup }; // EXPORTED
+export { initializeApp, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, sendEmailVerification }; // EXPORTED
 
 /* --- Global Utility Functions (NEW) --- */
 
@@ -67,7 +67,7 @@ let currentUser = null;
 selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
 
 /* ---------------------------------------------------------------------- */
-/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS (EMAIL/PASS & SOCIAL) ------- */
+/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS (EMAIL/PASS) ---------------- */
 /* ---------------------------------------------------------------------- */
 
 function openAuthModal() { 
@@ -93,13 +93,8 @@ async function handleAuthAction(action) {
             await signInWithEmailAndPassword(auth, email, password);
             alert("Login successful!");
         } else if (action === 'signup') {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            await sendEmailVerification(userCredential.user);
-            
-            // Sign out the new user immediately to force them to verify email
-            await signOut(auth); 
-            
-            alert("Sign Up successful! A confirmation link has been sent to your email. Please verify your email and log in.");
+            await createUserWithEmailAndPassword(auth, email, password);
+            alert("Account created and logged in!");
         }
         closeAuthModal();
     } catch (error) {
@@ -116,19 +111,27 @@ async function handleAuthAction(action) {
     }
 }
 
-async function signInWithGoogle() {
-    const provider = new GoogleAuthProvider();
+/**
+ * Sends an email verification to the currently logged-in user.
+ */
+export async function sendVerificationEmail() { // EXPORTED
+    const user = auth.currentUser;
+    if (!user) {
+        alert("No user is currently logged in.");
+        return;
+    }
+
+    if (user.emailVerified) {
+        alert("Your email is already verified.");
+        return;
+    }
+
     try {
-        await signInWithPopup(auth, provider);
-        closeAuthModal();
-        alert("Google Sign-In successful!");
+        await sendEmailVerification(user);
+        alert(`Verification email sent to ${user.email}! Please check your inbox.`);
     } catch (error) {
-        console.error("Google Sign-In error:", error);
-        if (error.code === 'auth/popup-closed-by-user') {
-             // User closed the popup, do nothing
-        } else {
-            alert(`Error during Google Sign-In: ${error.message}`);
-        }
+        console.error("Error sending verification email:", error);
+        alert(`Failed to send verification email. Error: ${error.message}`);
     }
 }
 
@@ -167,17 +170,6 @@ export async function loadData() { // EXPORTED
 
   // 2. Override with Firestore data if logged in
   if (currentUser) {
-    // Only load data if the user's email is verified OR they signed in via social provider
-    const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
-    if (!currentUser.emailVerified && !isSocialLogin) {
-        console.log("Email not verified. Not loading cloud data.");
-        // Clear in-memory data if the user is logged in with email/pass but not verified
-        entries = [];
-        repeatingEntries = [];
-        renderEntries();
-        return; 
-    }
-      
     const docRef = doc(db, "budgets", currentUser.uid);
     const docSnap = await getDoc(docRef);
 
@@ -217,10 +209,6 @@ export function saveData(){ // EXPORTED
 
   // Firestore (highest priority)
   if (currentUser) {
-    // Only save if the user's email is verified OR they signed in via social provider
-    const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
-    if (!currentUser.emailVerified && !isSocialLogin) return; 
-      
     const userId = currentUser.uid;
     const docRef = doc(db, "budgets", userId);
 
@@ -242,10 +230,6 @@ export function saveRepeats(){ // EXPORTED
 
   // Firestore (highest priority)
   if (currentUser) {
-    // Only save if the user's email is verified OR they signed in via social provider
-    const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
-    if (!currentUser.emailVerified && !isSocialLogin) return; 
-      
     const userId = currentUser.uid;
     const docRef = doc(db, "budgets", userId);
     
@@ -266,28 +250,11 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
       // User is signed in.
       currentUser = user;
-      
-      // Check if email is verified (only for email/password users)
-      const isEmailPasswordUser = currentUser.providerData.some(p => p.providerId === 'password');
-      
-      let statusHtml = `
+      authStatusDiv.innerHTML = `
         <p style="margin-bottom:5px; font-size:0.9em;">User: **${user.email}**</p>
-      `;
-      
-      if (isEmailPasswordUser && !user.emailVerified) {
-          statusHtml += `
-            <p style="margin-bottom:5px; font-size:0.8em; color:yellow;">**Email Not Verified!**</p>
-            <button onclick="auth.signOut(); alert('Please check your email for the verification link.')" style="background:orange;">Verify Email</button>
-          `;
-      }
-      
-      statusHtml += `
         <button onclick="openSettingsModal()"><i class="bi bi-gear-fill"></i></button>
         <button onclick="userSignOut()">Sign Out</button>
       `;
-      
-      authStatusDiv.innerHTML = statusHtml;
-
     } else {
       // User is signed out.
       currentUser = null;
@@ -1208,17 +1175,13 @@ function clearAll(){
         localStorage.removeItem('budgetRepeats');
         
         if (currentUser) {
-            // Only clear Firestore data if the user is verified/social logged in
-            const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
-            if (currentUser.emailVerified || isSocialLogin) {
-                const docRef = doc(db, "budgets", currentUser.uid);
-                setDoc(docRef, { 
-                  entries: [], 
-                  repeatingEntries: [],
-                  lastUpdated: new Date().toISOString()
-                }, { merge: true }) 
-                .catch(error => console.error("Error clearing Firestore data:", error));
-            }
+            const docRef = doc(db, "budgets", currentUser.uid);
+            setDoc(docRef, { 
+              entries: [], 
+              repeatingEntries: [],
+              lastUpdated: new Date().toISOString()
+            }, { merge: true }) 
+            .catch(error => console.error("Error clearing Firestore data:", error));
         }
         
         alert('All data cleared.');
@@ -1295,7 +1258,6 @@ function importData(event){
 window.openAuthModal = openAuthModal;
 window.closeAuthModal = closeAuthModal;
 window.handleAuthAction = handleAuthAction;
-window.signInWithGoogle = signInWithGoogle; // NEW EXPOSURE
 window.userSignOut = userSignOut;
 window.changeCurrency = changeCurrency;
 window.openModal = openModal;
@@ -1324,3 +1286,6 @@ window.updateRepeatField = updateRepeatField;
 // NEW EXPOSURES for Daily Chart Range:
 window.handleDailyChartRangeChange = handleDailyChartRangeChange; 
 window.setDailyChartDefaultRange = setDailyChartDefaultRange;
+
+// NEW EXPOSURE for Email Verification:
+window.sendVerificationEmail = sendVerificationEmail; 
