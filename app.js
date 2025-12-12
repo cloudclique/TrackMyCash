@@ -267,7 +267,12 @@ onAuthStateChanged(auth, async (user) => {
       entries = [];
       repeatingEntries = [];
       
-      // If local storage has a currency setting, maintain that
+      // --- START ADDED CODE: Clear Local Storage on Sign Out ---
+      localStorage.removeItem('budgetEntries');
+      localStorage.removeItem('budgetRepeats');
+      // --- END ADDED CODE ---
+
+      // If local storage has a currency setting, maintain that (This section now reads the cleared storage)
       const localSaved = localStorage.getItem('budgetEntries');
       if (localSaved) {
           currency = JSON.parse(localSaved).currency;
@@ -1287,5 +1292,5 @@ window.updateRepeatField = updateRepeatField;
 window.handleDailyChartRangeChange = handleDailyChartRangeChange; 
 window.setDailyChartDefaultRange = setDailyChartDefaultRange;
 
-// NEW EXPOSURE for Email Verification:
-window.sendVerificationEmail = sendVerificationEmail; 
+// EXPOSURE for Email Verification:
+window.sendVerificationEmail = sendVerificationEmail;
