@@ -82,7 +82,7 @@ h1 {
     font-weight: bold;
 }
 .back-button:hover {
-    color: #00bfa5;
+    color: var(--accent-clr-hvr);
 }
 .button-as-link { 
     display: inline-flex;
@@ -191,7 +191,7 @@ button {
     border: none; 
     cursor: pointer; 
     background: var(--accent-clr); 
-    color: var(--plane-clr); 
+    color: var(--txt-clr); 
     font-weight: bold; 
     transition: 0.25s; 
 }
@@ -234,7 +234,7 @@ th:nth-child(3), td:nth-child(3) {
 
 th { 
     background: var(--th-clr);
-    color: #00ffd5; 
+    color: var(--accent-clr); 
     position: sticky; 
     top: 0; 
 }
@@ -251,7 +251,7 @@ tr:hover {
 .category-text {
     display: block;
     font-size: 0.75em;
-    color: #999;
+    color: var(--dimm-txt-clr);
     margin-top: 3px;
     font-style: italic;
 }
@@ -302,7 +302,7 @@ tr:hover {
     color: var(--accent-clr); 
 }
 .close:hover { 
-    color: #00bfa5; 
+    color: var(--accent-clr-hvr); 
 }
 #categoryChart { 
     max-width: 100%; 
