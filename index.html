@@ -18,7 +18,7 @@
     <path d="M3.1,8.45h-1.02c.24,1.42.98,2.71,2.1,3.62,1.33,1.1,2.98,1.52,4.56,1.32-.21-.29-.36-.62-.47-.97-2.43.13-4.66-1.51-5.17-3.97Z"/>
     <path d="M11.82,2.83c-2.56-2.11-6.34-1.75-8.45.81,0,0,0,.02-.02.03-.17.22-.13.53.09.7s.53.13.7-.09c.92-1.11,2.3-1.82,3.86-1.82,2.38,0,4.42,1.67,4.9,4h1.02c-.24-1.42-.98-2.71-2.1-3.62h0Z"/>
   </g>
-  <path d="M12.21,8.56c-.17-.56-.96-.56-1.13,0l-.04.14c-.09.31-.42.49-.73.4-.04-.01-.08-.03-.11-.05l-.12-.07c-.51-.28-1.08.28-.8.8l.07.12c.18.33,0,.74-.35.84l-.14.04c-.56.17-.56.96,0,1.13l.14.04c.31.09.49.42.4.73,0,.04-.03.08-.05.11l-.07.12c-.28.51.28,1.08.8.8l.12-.07c.28-.15.64-.05.8.23.02.04.04.08.05.11l.04.14c.17.56.96.56,1.13,0l.04-.14c.09-.31.42-.49.73-.4.04.01.08.03.11.05l.12.07c.51.28,1.08-.28.8-.8l-.07-.12c-.15-.28-.05-.64.23-.8.04-.02.08-.04.11-.05l.14-.04c.56-.17.56-.96,0-1.13l-.14-.04c-.31-.09-.49-.42-.4-.73,0-.04.03-.08.05-.11l.07-.12c.28-.51-.28-1.08-.8-.8l-.12.07c-.28.15-.64.05-.8-.23-.02-.04-.04-.08-.05-.11l-.04-.14h.01ZM11.65,12.52c-.65,0-1.17-.53-1.17-1.17s.53-1.17,1.17-1.17,1.17.53,1.17,1.17-.53,1.17-1.17,1.17h0Z"/>
+  <path d="M12.21,8.56c-.17-.56-.96-.56-1.13,0l-.04.14c-.09.31-.42.49-.73.4-.04-.01-.08-.03-.11-.05l-.12-.07c-.51-.28-1.08.28-.8.8l.07.12c.18.33,0,.74-.35.84l-.14.04c-.56.17-.56.96,0,1.13l.14.04c.31.09.49.42.4.73,0,.04-.03.08-.05.11l-.07.12c-.28.51.28,1.08.8.8l.12-.07c.28-.15.64-.05.8.23.02.04.04.08.05.11l.04.14c.17.56.96.56,1.13,0l.04-.14c.09-.31.42-.49.73-.4.04.01.08.03.11.05l.12.07c.51.28,1.08-.28.8-.8l-.07-.12c-.15-.28-.05-.64.23-.8.04-.02.08-.04.11-.05l.14-.04c.56-.17.56-.96,0-1.13l-.14-.04c-.31-.09-.49-.42-.4-.73,0-.04.03-.08.05-.11l-.07-.12c.28-.51-.28-1.08-.8-.8l-.12.07c-.28.15-.64.05-.8-.23-.02-.04-.04-.08-.05-.11l-.04-.14h.01ZM11.65,12.52c-.65,0-1.17-.53-1.17-1.17s.53-1.17,1.17-1.17,1.17.53,1.17,1.17-.53,1.17-1.17,1.17h0Z"/>
   
 </symbol>
 <symbol id="repeat_add" viewBox="0 0 16 16">
@@ -32,12 +32,18 @@
 </symbol>
 </svg>
 
+<div class="logo" style="justify-content:space-between; align-items:flex-start;">
+<h1>CashTracker</h1>
+</div>
+
 <div class="top-bar" style="justify-content:space-between; align-items:flex-start;">
-  <h1>CashTracker</h1>
+  <h1></h1>
   <div id="authStatus" style="text-align:right; min-width:180px;">
     <button onclick="openAuthModal()" id="mainLoginBtn">Login / Sign Up</button>
   </div>
 </div>
+
+
 <div class="top-bar">
   <div>
     <label>
@@ -58,6 +64,16 @@
 <div class="main-grid">
   
   <div class="card main-table-card">
+
+    <div class="card controls-card">
+      <button onclick="openModal()"><i class="bi bi-plus-square-fill"></i> New Entry</button>
+      <button onclick="openRepeatModal()"><svg class="icon" width="20" height="20" style="margin-bottom: -3px;"><use href="#repeat_add" ></use></svg> New Repeat</button>
+      <button><a href="./manage-repeats">
+        <svg class="icon" width="20" height="20" style="margin-bottom: -5px;"><use href="#repeat_manage"></use></svg> Manage Repeats
+      </a>
+      </button>
+    </div>
+
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <button onclick="prevMonth()"><i class="bi bi-arrow-left-short"></i></button>
       <div id="monthLabel">All Time</div>
@@ -79,25 +95,27 @@
   </div>
 
   <div class="card chart-card">
+    <h2>Expenses by Category</h2>
     <canvas id="categoryChart"></canvas>
   </div>
 
   <div class="right-column-container">
-    <div class="card controls-card">
-      <button onclick="openModal()"><i class="bi bi-plus-square-fill"></i> New Entry</button>
-      <button onclick="openRepeatModal()"><svg class="icon" width="20" height="20" style="margin-bottom: -3px;"><use href="#repeat_add" ></use></svg> New Repeat</button>
-      <a href="./manage-repeats" class="button-as-link">
-        <svg class="icon" width="20" height="20" style="margin-bottom: -5px;"><use href="#repeat_manage"></use></svg> Manage Repeats
-      </a>
-    </div>
     
-    <div class="card balance-card">
-        <h3 style="text-align:center; margin-bottom: 10px;">Monthly Total Balance</h3>
-        <p style="text-align:center; font-size:0.9em; color:#00ffd5; margin-bottom:15px;">
-            *Click "Total Balance" above for full chart*
-        </p>
-        <div id="monthlyBalancePreview" style="height: 120px;">
-             </div>
+    <div class="card chart-card">
+        <h2>Daily Cumulative Balance</h2>
+        <div style="display:flex; gap:10px; margin-bottom: 15px; align-items: flex-end; justify-content: center;">
+            <div style="flex-grow:1;">
+                <label for="dailyChartStartDate" style="display:block; font-size: 0.8em; color: #aaa; margin-bottom: 3px;">Start Date</label>
+                <input type="date" id="dailyChartStartDate" style="width:100%; padding: 5px; background: #222; border: 1px solid #444; color: #eee; border-radius: 4px;">
+            </div>
+            <div style="flex-grow:1;">
+                <label for="dailyChartEndDate" style="display:block; font-size: 0.8em; color: #aaa; margin-bottom: 3px;">End Date</label>
+                <input type="date" id="dailyChartEndDate" style="width:100%; padding: 5px; background: #222; border: 1px solid #444; color: #eee; border-radius: 4px;">
+            </div>
+            <button onclick="handleDailyChartRangeChange()" style=" white-space: nowrap; margin-top: 0;">Apply</button>
+        </div>
+        <canvas id="dailyBalanceChart" height="200" ></canvas>
+        <p class="chart-note"style="font-size:9pt">Cumulative balance includes all entries and projected repeats up to the selected day.</p>
     </div>
   </div>
 
@@ -113,6 +131,8 @@
         
         <button onclick="handleAuthAction('login')" id="loginBtn">Login</button>
         <button onclick="handleAuthAction('signup')" id="signupBtn" style="background:#555; color:#eee;">Sign Up</button>
+        <div style="text-align:center; margin-top:10px; font-weight:bold; color: #999;">OR</div>
+        <button onclick="signInWithGoogle()" style="background:#4285F4; color:#fff; border:none;"><i class="bi bi-google"></i></button>
         <p style="text-align:center; margin-top:10px; font-size: 0.8em; color: #999;">
             Note: If you are signing up, this will create a new account.
         </p>

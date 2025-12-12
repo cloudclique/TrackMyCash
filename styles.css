@@ -1,3 +1,17 @@
+:root{
+    --txt-clr: #000000;
+    --alt-txt-clr: #ffffff;
+    --dimm-txt-clr: #999999;
+    --bg-clr:#121212;
+    --accent-clr:#00ffd5;
+    --accent-clr-hvr:#00b496;
+    --th-clr: #272727;
+    --plane-clr: #1e1e1e;
+    --gain-clr: #00ff7f;
+    --loss-clr: #ff4c4c; 
+    --shadow: rgb(10, 10, 10); 
+}
+
 * { 
     margin: 0; 
     padding: 0; 
@@ -5,16 +19,21 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
 }
 body { 
-    background: #121212; 
-    color: #eee; 
+    background: var(--bg-clr); 
+    color: var(--alt-txt-clr);
     display: flex; 
     flex-direction: column; 
     align-items: center; 
     padding: 20px; 
 }
+a {
+    text-decoration: none;
+    color: var(--txt-clr);
+}
+
 h1 { 
     font-size: 2rem; 
-    color: #00ffd5; 
+    color: var(--accent-clr); 
     margin-bottom: 10px; 
 }
 .top-bar { 
@@ -25,11 +44,21 @@ h1 {
     align-items:center; 
     margin-bottom: 10px; 
 }
+
+.logo {
+    width: 100%; 
+    max-width: 1200px; 
+    display:flex; 
+    justify-content: space-between; 
+    align-items:center; 
+    margin-bottom: 10px;
+}
+
 .card { 
     background: #1e1e1e; 
     padding: 20px; 
     border-radius: 16px; 
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6); 
+    box-shadow: 0 8px 24px var(--shadow); 
     width: 100%; 
     max-width: none; 
     margin-bottom: 20px; 
@@ -45,7 +74,7 @@ h1 {
 }
 .back-button {
     font-size: 1.1em;
-    color: #00ffd5;
+    color: var(--accent-clr);
     text-decoration: none;
     display: flex;
     align-items: center;
@@ -65,14 +94,14 @@ h1 {
     border-radius: 12px; 
     border: none; 
     cursor: pointer; 
-    background: #00ffd5; 
-    color: #121212 !important; 
+    background: var(--accent-clr); 
+    color: var(--bg-clr) !important; 
     font-weight: bold; 
     transition: 0.25s; 
     width: 100%;
 }
 .button-as-link:hover { 
-    background: #00bfa5; 
+    background: var(--accent-clr); 
 }
 /* --- END NEW STYLES --- */
 
@@ -88,6 +117,7 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    grid-column: 3 / 4; 
 }
 .main-table-card {
     grid-column: 1 / 2; 
@@ -99,16 +129,20 @@ h1 {
     grid-column: 2 / 3;
     max-height: 70vh;
 }
-.right-column-container {
-    grid-column: 3 / 4; 
+.controls-card, .balance-card {
+    display:flex;
+    width: 100%;    
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 5px;
+    margin-bottom: 20px;
+    padding: 2px;
 }
 .controls-card button {
-    width: 100%;
-    margin-top: 10px;
-    margin-bottom: 0;
-}
-.controls-card button:first-child {
-    margin-top: 0;
+    width: 32%;
+    margin-top: 5px;
+    text-decoration: none;
 }
 .entry-table-scroll {
     overflow-y: auto; 
@@ -123,8 +157,8 @@ select, input {
     margin-bottom: 10px; 
     border-radius: 8px; 
     border: none; 
-    background: #2a2a2a; 
-    color: #fff; 
+    background: var(--plane-clr); 
+    color: var(--alt-txt-clr); 
     outline: none; 
 }
 input::placeholder { 
@@ -136,13 +170,13 @@ button {
     border-radius: 12px; 
     border: none; 
     cursor: pointer; 
-    background: #00ffd5; 
-    color: #121212; 
+    background: var(--accent-clr); 
+    color: var(--plane-clr); 
     font-weight: bold; 
     transition: 0.25s; 
 }
 button:hover { 
-    background: #00bfa5; 
+    background: var(--accent-clr-hvr); 
 }
 table { 
     width: 100%; 
@@ -179,18 +213,19 @@ th:nth-child(3), td:nth-child(3) {
 }
 
 th { 
-    background: #292929; 
+    background: var(--th-clr);
     color: #00ffd5; 
     position: sticky; 
     top: 0; 
 }
 tr { 
-    background: #1e1e1e; 
+    background: var(--plane-clr); 
     transition: background 0.3s; 
+    border-radius: 20px;
     cursor: pointer; 
 }
 tr:hover { 
-    background: #2a2a2a; 
+    background: var(--th-clr); 
 }
 
 .category-text {
@@ -202,10 +237,10 @@ tr:hover {
 }
 
 .income { 
-    color: #00ff7f; 
+    color: var(--gain-clr); 
 }
 .expense { 
-    color: #ff4c4c; 
+    color: var(--loss-clr); 
 }
 #totalBalance { 
     font-size: 1.5em; 
@@ -228,12 +263,12 @@ tr:hover {
     padding: 20px; 
 }
 .modal-content { 
-    background: #1e1e1e; 
+    background: var(--bg-clr); 
     border-radius: 12px; 
     padding: 18px; 
     width: 100%; 
     max-width: 760px; 
-    color: #fff; 
+    color: var(--alt-txt-clr); 
     box-shadow: 0 8px 32px rgba(0,0,0,0.6); 
 }
 .small-modal { 
@@ -244,7 +279,7 @@ tr:hover {
     font-size: 24px; 
     font-weight: bold; 
     cursor: pointer; 
-    color: #00ffd5; 
+    color: var(--accent-clr); 
 }
 .close:hover { 
     color: #00bfa5; 
@@ -277,11 +312,11 @@ tr:hover {
 .manage-table td select {
     width: 100%; 
     box-sizing: border-box; 
-    background:#222; 
-    color:#fff; 
+    background:var(--bg-clr); 
+    color:var(--alt-txt-clr); 
     padding:6px; 
     border-radius:6px; 
-    border:1px solid #333;
+    border:1px solid var(--bg-clr);
     margin-bottom: 0; 
 }
 
@@ -303,12 +338,18 @@ tr:hover {
 .manage-table td button {
     padding: 4px 8px; 
     font-size: 0.8em;
-    background: #ff4c4c;
-    color: #121212;
+    background: var(--loss-clr);
+    color: var(--bg-clr);
     margin: 0;
 }
 
 @media (max-width: 950px){
+    
+    a {
+    text-decoration: none;
+    color: var(--txt-clr);
+    }
+
     .main-grid {
         grid-template-columns: 1fr; 
         gap: 10px;
@@ -326,11 +367,20 @@ tr:hover {
         flex-direction: row; 
     }
     .controls-card, .balance-card {
-        width: 50%;
+        display:flex;
+        width: 100%;
         margin-bottom: 0;
+        font-size: auto;
+        flex-wrap: wrap;
+        justify-content: left;
+        align-items: stretch;
+        gap: 5px;
+        margin-bottom: 20px;
     }
     .controls-card button {
+        width: 120px;
         margin-top: 5px;
+        text-decoration: none;
     }
     .entry-table-scroll {
         max-height: none;
@@ -338,6 +388,12 @@ tr:hover {
     }
 }
 @media (max-width: 640px){
+
+    a {
+    text-decoration: none;
+    color:  #00000000;
+    }
+
     .modal-content { 
         padding: 12px; 
         max-width: 95%; 
@@ -348,9 +404,35 @@ tr:hover {
     }
     .right-column-container {
         flex-direction: column; 
+        grid-column: 3 / 4; 
     }
     .controls-card, .balance-card {
+        display:flex;
         width: 100%;
+        margin-bottom: 0;
+        font-size: auto;
+        flex-wrap: wrap;
+        justify-content: left;
+        align-items: center;
+        gap: 5px;
         margin-bottom: 10px;
     }
+
+    .controls-card button {
+        width: 50px;
+        height: 50px;
+        margin-top: 5px;
+        text-decoration: none;
+        color:  #00000000;
+        overflow: hidden;
+        white-space: nowrap;
+        align-content: left;
+        padding-left: 15px;
+    }
+
+    .controls-card button i{
+        margin-left: 4px;
+        color: var(--txt-clr);
+    }
+
 }

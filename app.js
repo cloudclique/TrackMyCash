@@ -2,7 +2,7 @@
 /* --- 1. FIREBASE SETUP & IMPORTS -------------------------------------- */
 /* ---------------------------------------------------------------------- */
 
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
@@ -21,7 +21,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app); // EXPORTED
 export const db = getFirestore(app); // EXPORTED
-export { initializeApp, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, getFirestore, doc, setDoc, getDoc }; // EXPORTED
+export { initializeApp, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, sendEmailVerification, GoogleAuthProvider, signInWithPopup }; // EXPORTED
 
 /* --- Global Utility Functions (NEW) --- */
 
@@ -49,6 +49,8 @@ export function assignMissingIds(arr) { // EXPORTED
 /* --- 2. GLOBAL STATE & INITIALIZATION --------------------------------- */
 /* ---------------------------------------------------------------------- */
 
+const default_grapgh_days = 14;
+
 export let entries = []; // EXPORTED
 export let repeatingEntries = []; // EXPORTED
 let editIndex = null;
@@ -57,13 +59,15 @@ let currency = "$";
 let selectedMonth = null;
 let chart = null;
 let monthlyChart = null;
+let dailyChart = null; 
 const today = new Date();
 let currentUser = null; 
+
 
 selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
 
 /* ---------------------------------------------------------------------- */
-/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS (EMAIL/PASS) ---------------- */
+/* --- 3. FIREBASE AUTHENTICATION FUNCTIONS (EMAIL/PASS & SOCIAL) ------- */
 /* ---------------------------------------------------------------------- */
 
 function openAuthModal() { 
@@ -89,8 +93,13 @@ async function handleAuthAction(action) {
             await signInWithEmailAndPassword(auth, email, password);
             alert("Login successful!");
         } else if (action === 'signup') {
-            await createUserWithEmailAndPassword(auth, email, password);
-            alert("Account created and logged in!");
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await sendEmailVerification(userCredential.user);
+            
+            // Sign out the new user immediately to force them to verify email
+            await signOut(auth); 
+            
+            alert("Sign Up successful! A confirmation link has been sent to your email. Please verify your email and log in.");
         }
         closeAuthModal();
     } catch (error) {
@@ -106,6 +115,23 @@ async function handleAuthAction(action) {
         alert(message);
     }
 }
+
+async function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithPopup(auth, provider);
+        closeAuthModal();
+        alert("Google Sign-In successful!");
+    } catch (error) {
+        console.error("Google Sign-In error:", error);
+        if (error.code === 'auth/popup-closed-by-user') {
+             // User closed the popup, do nothing
+        } else {
+            alert(`Error during Google Sign-In: ${error.message}`);
+        }
+    }
+}
+
 
 export async function userSignOut() { // EXPORTED
     if (!confirm('Are you sure you want to sign out? Data will be cleared from view.')) return;
@@ -141,6 +167,17 @@ export async function loadData() { // EXPORTED
 
   // 2. Override with Firestore data if logged in
   if (currentUser) {
+    // Only load data if the user's email is verified OR they signed in via social provider
+    const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
+    if (!currentUser.emailVerified && !isSocialLogin) {
+        console.log("Email not verified. Not loading cloud data.");
+        // Clear in-memory data if the user is logged in with email/pass but not verified
+        entries = [];
+        repeatingEntries = [];
+        renderEntries();
+        return; 
+    }
+      
     const docRef = doc(db, "budgets", currentUser.uid);
     const docSnap = await getDoc(docRef);
 
@@ -180,6 +217,10 @@ export function saveData(){ // EXPORTED
 
   // Firestore (highest priority)
   if (currentUser) {
+    // Only save if the user's email is verified OR they signed in via social provider
+    const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
+    if (!currentUser.emailVerified && !isSocialLogin) return; 
+      
     const userId = currentUser.uid;
     const docRef = doc(db, "budgets", userId);
 
@@ -201,6 +242,10 @@ export function saveRepeats(){ // EXPORTED
 
   // Firestore (highest priority)
   if (currentUser) {
+    // Only save if the user's email is verified OR they signed in via social provider
+    const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
+    if (!currentUser.emailVerified && !isSocialLogin) return; 
+      
     const userId = currentUser.uid;
     const docRef = doc(db, "budgets", userId);
     
@@ -217,15 +262,32 @@ onAuthStateChanged(auth, async (user) => {
   const authStatusDiv = document.getElementById('authStatus');
   
   // Only execute this logic on the main index page
-  if (authStatusDiv && authStatusDiv.closest('.top-bar').querySelector('h1').innerText === 'CashTracker') {
+  if (authStatusDiv && authStatusDiv.closest('.top-bar').querySelector('h1').innerText === '') {
     if (user) {
       // User is signed in.
       currentUser = user;
-      authStatusDiv.innerHTML = `
+      
+      // Check if email is verified (only for email/password users)
+      const isEmailPasswordUser = currentUser.providerData.some(p => p.providerId === 'password');
+      
+      let statusHtml = `
         <p style="margin-bottom:5px; font-size:0.9em;">User: **${user.email}**</p>
+      `;
+      
+      if (isEmailPasswordUser && !user.emailVerified) {
+          statusHtml += `
+            <p style="margin-bottom:5px; font-size:0.8em; color:yellow;">**Email Not Verified!**</p>
+            <button onclick="auth.signOut(); alert('Please check your email for the verification link.')" style="background:orange;">Verify Email</button>
+          `;
+      }
+      
+      statusHtml += `
         <button onclick="openSettingsModal()"><i class="bi bi-gear-fill"></i></button>
         <button onclick="userSignOut()">Sign Out</button>
       `;
+      
+      authStatusDiv.innerHTML = statusHtml;
+
     } else {
       // User is signed out.
       currentUser = null;
@@ -407,16 +469,7 @@ export function deleteRepeat(id){ // EXPORTED
   if(index !== -1) {
     repeatingEntries.splice(index,1);
     saveRepeats();
-    // If we're on the manage page, we want to re-render it
-    if (document.getElementById('manageRepeatsBody')) {
-        // Since renderManageRepeatsTable is not in app.js, we need to rely on 
-        // the manage_repeats_script.js to handle re-render after data update.
-        // The inline call to deleteRepeat will trigger a window-level function call 
-        // which has the updated reference to repeatingEntries.
-        // On a single-page app, we would re-render. Since we are on a different page, 
-        // the manage_repeats_script.js needs a way to re-render itself. 
-        // The management script exposes this. We'll rely on the window-level call in the other script.
-    }
+    // Re-render handled by the window-level call in the other script.
     renderEntries(); // Re-render the main table
   }
 }
@@ -448,14 +501,13 @@ export function updateRepeatField(id, field, value){ // EXPORTED
 }
 
 /**
- * Calculates all specific dates within a month (ym) for a single repeating entry.
+ * Calculates all specific dates within an arbitrary date range (start/end inclusive) for a single repeating entry.
  */
-function getRepeatDatesForMonth(entry, ym) {
+function getRepeatDatesForPeriod(entry, periodStartStr, periodEndStr) {
   const dates = [];
-  const targetDateStart = new Date(`${ym}-01T00:00:00`);
-  const targetDateEnd = new Date(targetDateStart);
-  targetDateEnd.setMonth(targetDateEnd.getMonth() + 1); 
-
+  const periodStartDate = new Date(periodStartStr + 'T00:00:00');
+  const periodEndDate = new Date(periodEndStr + 'T00:00:00');
+  
   const startDate = new Date(entry.start + 'T00:00:00');
   const endDate = entry.end ? new Date(entry.end + 'T00:00:00') : null;
 
@@ -464,18 +516,32 @@ function getRepeatDatesForMonth(entry, ym) {
 
   let repeatCheckDate = new Date(startDate);
   
-  while (repeatCheckDate < targetDateEnd) {
+  // Find the first occurrence of the repeat entry that is >= periodStartDate
+  while (repeatCheckDate < periodStartDate) {
+      const nextDate = new Date(repeatCheckDate);
+      if (frequency === 'days') nextDate.setDate(repeatCheckDate.getDate() + interval);
+      else if (frequency === 'weeks') nextDate.setDate(repeatCheckDate.getDate() + interval * 7);
+      else if (frequency === 'months') {
+          const dayOfMonth = repeatCheckDate.getDate();
+          nextDate.setMonth(repeatCheckDate.getMonth() + interval);
+          if (nextDate.getDate() < dayOfMonth && nextDate.getMonth() !== (repeatCheckDate.getMonth() + interval) % 12) {
+              nextDate.setDate(0); 
+              nextDate.setMonth(repeatCheckDate.getMonth() + interval); 
+          }
+      } else if (frequency === 'years') nextDate.setFullYear(repeatCheckDate.getFullYear() + interval);
+
+      if (nextDate.getTime() <= repeatCheckDate.getTime()) break; 
+      repeatCheckDate = nextDate;
+  }
+  
+  // Now, iterate from the first occurrence within the period
+  while (repeatCheckDate <= periodEndDate) {
     if (endDate && repeatCheckDate > endDate) break;
 
     const dateStr = `${repeatCheckDate.getFullYear()}-${String(repeatCheckDate.getMonth() + 1).padStart(2, '0')}-${String(repeatCheckDate.getDate()).padStart(2, '0')}`;
-    const repeatCheckYM = dateStr.slice(0, 7);
+    dates.push(dateStr);
 
-    if (repeatCheckYM === ym) {
-        dates.push(dateStr);
-    } else if (repeatCheckYM > ym) {
-        break; 
-    }
-
+    // Calculate the next date
     const nextDate = new Date(repeatCheckDate);
     if (frequency === 'days') nextDate.setDate(repeatCheckDate.getDate() + interval);
     else if (frequency === 'weeks') nextDate.setDate(repeatCheckDate.getDate() + interval * 7);
@@ -488,14 +554,23 @@ function getRepeatDatesForMonth(entry, ym) {
         }
     } else if (frequency === 'years') nextDate.setFullYear(repeatCheckDate.getFullYear() + interval);
     
-    if (nextDate.getTime() <= repeatCheckDate.getTime()) {
-      break; 
-    }
+    if (nextDate.getTime() <= repeatCheckDate.getTime()) break;
     repeatCheckDate = nextDate;
   }
   
-  const uniqueDates = Array.from(new Set(dates)).filter(d => d.startsWith(ym));
-  return uniqueDates.sort();
+  return dates.filter(d => d >= periodStartStr && d <= periodEndStr).sort();
+}
+
+
+/**
+ * Calculates all specific dates within a month (ym) for a single repeating entry.
+ */
+function getRepeatDatesForMonth(entry, ym) {
+  const targetDateStart = ym + '-01';
+  const targetDateEnd = new Date(new Date(ym.slice(0, 4), ym.slice(5, 7), 0));
+  const targetDateEndStr = `${targetDateEnd.getFullYear()}-${String(targetDateEnd.getMonth() + 1).padStart(2, '0')}-${String(targetDateEnd.getDate()).padStart(2, '0')}`;
+  
+  return getRepeatDatesForPeriod(entry, targetDateStart, targetDateEndStr);
 }
 
 /* --- Repeats expanded for a selected month --- */
@@ -504,18 +579,10 @@ function getRepeatsForMonth(ym){
   const monthStr = ym; 
 
   return repeatingEntries.flatMap(entry => {
-    if(entry.excludeMonths && entry.excludeMonths.includes(monthStr)){
-      return [{ 
-        ...entry, 
-        date: monthStr + '-01', 
-        isRepeat: true, 
-        excluded: true 
-      }];
-    }
-    
     const startMonth = entry.start.slice(0,7);
     const endMonth = entry.end ? entry.end.slice(0,7) : null;
     
+    // Check if the repeating entry is even valid for this month
     if(monthStr < startMonth) return [];
     if(endMonth && monthStr > endMonth) return [];
 
@@ -525,7 +592,8 @@ function getRepeatsForMonth(ym){
       ...entry, 
       date: date, 
       isRepeat: true, 
-      excluded: false 
+      // Set 'excluded' flag based on the entry's excludeMonths array
+      excluded: (entry.excludeMonths || []).includes(monthStr)
     }));
   });
 }
@@ -561,63 +629,30 @@ function renderEntries(){
   if(!selectedMonth) selectedMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
 
   const filteredEntries = entries.filter(e => e.date.startsWith(selectedMonth));
-  const repeats = getRepeatsForMonth(selectedMonth);
-
-  const pastEntries = entries.filter(e => e.date.slice(0,7) <= todayMonth);
+  const repeats = getRepeatsForMonth(selectedMonth); // Repeats now includes excluded entries with the 'excluded: true' flag
   
-  const pastRepeats = repeatingEntries.flatMap(entry => {
-    const repeats = [];
-    let cur = new Date(entry.start + 'T00:00:00'); 
-    const endLimit = entry.end ? new Date(entry.end + 'T00:00:00') : new Date(8640000000000000); 
-    const effectiveEnd = (endLimit > today) ? today : endLimit;
+  // Calculate total balance up to today's date
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  totalBalance = getRunningBalanceUpToDate(todayStr);
 
-    const interval = Number(entry.interval) || 1;
-    const frequency = entry.frequency || 'months';
-
-    while(cur <= effectiveEnd){
-      const m = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-      if(!(entry.excludeMonths || []).includes(m)){
-        const dateStr = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
-        repeats.push({...entry, date: dateStr, isRepeat: true});
-      }
-      
-      const nextDate = new Date(cur);
-      if (frequency === 'days') nextDate.setDate(cur.getDate() + interval);
-      else if (frequency === 'weeks') nextDate.setDate(cur.getDate() + interval * 7);
-      else if (frequency === 'months') {
-        const dayOfMonth = cur.getDate();
-        nextDate.setMonth(cur.getMonth() + interval);
-        if (nextDate.getDate() < dayOfMonth && nextDate.getMonth() !== (cur.getMonth() + interval) % 12) {
-            nextDate.setDate(0); 
-            nextDate.setMonth(cur.getMonth() + interval);
-        }
-      } else if (frequency === 'years') nextDate.setFullYear(cur.getFullYear() + interval);
-      
-      if (nextDate.getTime() <= cur.getTime()) break;
-      cur = nextDate;
-    }
-    return repeats;
-  });
-
-  const uniquePastRepeats = Array.from(new Set(pastRepeats.map(r => r.id + r.date))) 
-    .map(uniqueId => pastRepeats.find(r => r.id + r.date === uniqueId)); 
-
-  totalBalance =
-    pastEntries.reduce((s,e) => s + (e.type === 'income' ? e.amount : -e.amount), 0) +
-    uniquePastRepeats.reduce((s,e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
   
   const combinedEntries = [...filteredEntries, ...repeats].sort((a, b) => {
-      if (a.date > b.date) return -1;
-      if (a.date < b.date) return 1;
+      // Sort by date descending (most recent first: b.date > a.date)
+      if (a.date < b.date) return 1; // b is newer, so b comes first
+      if (a.date > b.date) return -1; // a is newer, so a comes first
+      
+      // Secondary sort: Non-repeats before repeats on the same day
       if (a.isRepeat && !b.isRepeat) return 1;
       if (!a.isRepeat && b.isRepeat) return -1;
       return 0;
   });
 
   combinedEntries.forEach(entry => {
+    // Only count entries that are NOT excluded toward the displayed monthly balance
     if(!entry.excluded) monthlyBalance += (entry.type === 'income' ? entry.amount : -entry.amount);
 
     const tr = document.createElement('tr');
+    // Use the excluded flag to style the row
     if(entry.excluded) tr.classList.add('gray');
 
     const isRepeat = entry.isRepeat;
@@ -732,7 +767,6 @@ function getCategoriesForMonth(ym){
 export function updateCategoryList(){ // EXPORTED
   const categoryList = document.getElementById('categoryList');
   if (!categoryList) return; // Exit if element is not present (e.g. on manage_repeats page)
-  categoryList.innerHTML = '';
   const allCategories = new Set(entries.map(e => e.category).filter(Boolean));
   repeatingEntries.map(e => e.category).filter(Boolean).forEach(c => allCategories.add(c));
 
@@ -779,7 +813,261 @@ function updateChart(){
   });
 
   updateMonthlyBalanceChart(false);
+  setDailyChartDefaultRange(); // NEW: Call the function to set default range and update chart
 }
+
+/* ---------------------------------------------------------------------- */
+/* --- NEW: GENERAL BALANCE FUNCTIONALITY ------------------------------- */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Calculates the total balance from all entries and repeats up to (but not including) the target date.
+ */
+function getRunningBalanceUpToDate(targetDateStr) {
+    let balance = 0;
+    
+    // 1. Tally regular entries before the target date
+    const pastEntries = entries.filter(e => e.date < targetDateStr);
+    balance += pastEntries.reduce((s, e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
+
+    // 2. Tally repeating entries before the target date
+    const targetDate = new Date(targetDateStr + 'T00:00:00');
+    
+    const pastRepeats = repeatingEntries.flatMap(entry => {
+        const repeats = [];
+        let cur = new Date(entry.start + 'T00:00:00');
+        const endLimit = entry.end ? new Date(entry.end + 'T00:00:00') : new Date(8640000000000000);
+        
+        const interval = Number(entry.interval) || 1;
+        const frequency = entry.frequency || 'months';
+
+        while (cur < targetDate && cur <= endLimit) { 
+            const m = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
+            const dateStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+            
+            if (!(entry.excludeMonths || []).includes(m)) {
+                repeats.push({ ...entry, date: dateStr, isRepeat: true });
+            }
+
+            const nextDate = new Date(cur);
+            if (frequency === 'days') nextDate.setDate(cur.getDate() + interval);
+            else if (frequency === 'weeks') nextDate.setDate(cur.getDate() + interval * 7);
+            else if (frequency === 'months') {
+                const dayOfMonth = cur.getDate();
+                nextDate.setMonth(cur.getMonth() + interval);
+                if (nextDate.getDate() < dayOfMonth && nextDate.getMonth() !== (cur.getMonth() + interval) % 12) {
+                    // Handle month rollover correctly
+                    nextDate.setDate(0); 
+                    nextDate.setMonth(cur.getMonth() + interval);
+                }
+            } else if (frequency === 'years') nextDate.setFullYear(cur.getFullYear() + interval);
+
+            if (nextDate.getTime() <= cur.getTime()) break;
+            cur = nextDate;
+        }
+        return repeats;
+    });
+    
+    const uniquePastRepeats = pastRepeats.filter((r, index, self) => 
+        index === self.findIndex((t) => (t.id === r.id && t.date === r.date))
+    );
+
+    balance += uniquePastRepeats.reduce((s, e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
+    return balance;
+}
+
+/**
+ * Calculates the total balance from all entries and repeats up to the day before the target month.
+ * (Replaces old logic with a call to the new general function for compatibility with monthly chart)
+ */
+function getBalanceBeforeMonth(ym) {
+    const targetDateStart = ym + '-01'; 
+    return getRunningBalanceUpToDate(targetDateStart);
+}
+
+/* ---------------------------------------------------------------------- */
+/* --- MODIFIED: DAILY BALANCE CHART FUNCTIONALITY (CUSTOM RANGE) ------- */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Sets the date inputs and updates the daily chart to the default range (last 30 days).
+ */
+export function setDailyChartDefaultRange() { // EXPORTED
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    const endDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - (default_grapgh_days-1)); // 30 days including today
+    const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+    
+    const startInput = document.getElementById('dailyChartStartDate');
+    const endInput = document.getElementById('dailyChartEndDate');
+    
+    if (startInput) startInput.value = startDateStr;
+    if (endInput) endInput.value = endDateStr;
+
+    updateDailyBalanceChart(startDateStr, endDateStr);
+}
+
+/**
+ * Handles the click of the 'Apply' button for the daily chart range.
+ */
+export function handleDailyChartRangeChange() { // EXPOSED to window
+    const startDateStr = document.getElementById('dailyChartStartDate').value;
+    const endDateStr = document.getElementById('dailyChartEndDate').value;
+
+    if (!startDateStr || !endDateStr) {
+        alert("Please select both a start and an end date.");
+        return;
+    }
+
+    updateDailyBalanceChart(startDateStr, endDateStr);
+}
+
+/**
+ * Calculates and displays the cumulative balance for a custom date range.
+ */
+export function updateDailyBalanceChart(startDateStr, endDateStr){ 
+  const chartEl = document.getElementById('dailyBalanceChart'); 
+  if (!chartEl) return;
+  
+  const start = new Date(startDateStr + 'T00:00:00');
+  const end = new Date(endDateStr + 'T00:00:00');
+  
+  // Input validation (should also be checked in handleDailyChartRangeChange, but safe to double check)
+  if (start.getTime() > end.getTime()) {
+      // If custom dates are invalid, fall back to default
+      setDailyChartDefaultRange(); 
+      return; 
+  }
+  
+  // Format the final range strings (T00:00:00 ensures correct date handling)
+  const finalEndDateStr = endDateStr; 
+  const finalStartDateStr = startDateStr;
+
+
+  // 1. Calculate the starting balance (total balance up to the day before the window)
+  const dayBeforeStartDate = new Date(start);
+  dayBeforeStartDate.setDate(dayBeforeStartDate.getDate() - 1);
+  const dayBeforeStartDateStr = `${dayBeforeStartDate.getFullYear()}-${String(dayBeforeStartDate.getMonth() + 1).padStart(2, '0')}-${String(dayBeforeStartDate.getDate()).padStart(2, '0')}`;
+  let runningBalance = getRunningBalanceUpToDate(dayBeforeStartDateStr);
+
+  // 2. Prepare daily data points and labels, and filter entries
+  const dailyData = [];
+  const dailyLabels = [];
+  
+  // Filter entries within the period (inclusive)
+  const entriesInPeriod = entries.filter(e => e.date >= finalStartDateStr && e.date <= finalEndDateStr);
+
+  // Generate a list of all dates in the range
+  const dailyNet = new Map();
+  let currentDate = new Date(start);
+  currentDate.setHours(0,0,0,0); 
+
+  while (currentDate.getTime() <= end.getTime()) {
+      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+      dailyNet.set(dateStr, 0);
+      currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Aggregate regular entries by date
+  entriesInPeriod.forEach(e => {
+    const net = e.type === 'income' ? e.amount : -e.amount;
+    dailyNet.set(e.date, (dailyNet.get(e.date) || 0) + net);
+  });
+
+  // Aggregate repeating entries by date (only counting non-excluded ones)
+  repeatingEntries.forEach(entry => {
+    const datesInPeriod = getRepeatDatesForPeriod(entry, finalStartDateStr, finalEndDateStr);
+    datesInPeriod.forEach(date => {
+        const month = date.slice(0, 7);
+        if (!(entry.excludeMonths || []).includes(month)) {
+            const net = entry.type === 'income' ? entry.amount : -entry.amount;
+            dailyNet.set(date, (dailyNet.get(date) || 0) + net);
+        }
+    });
+  });
+
+  // 3. Calculate cumulative balance day-by-day
+  const sortedDates = Array.from(dailyNet.keys()).sort();
+  
+  for (const dateStr of sortedDates) {
+    const netChange = dailyNet.get(dateStr) || 0;
+    runningBalance += netChange;
+    dailyData.push(runningBalance);
+    // Use the short day/month label for better readability on the chart
+    const d = new Date(dateStr + 'T00:00:00');
+    dailyLabels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+  }
+  
+  // 4. Chart rendering
+  if (dailyChart) dailyChart.destroy(); 
+  
+  // Update chart title to reflect the range
+  const chartTitle = dailyLabels.length > 0 ? 
+    `Cumulative Daily Balance: ${dailyLabels[0]} - ${dailyLabels[dailyLabels.length - 1]}` :
+    `Cumulative Daily Balance (No data for selected range)`;
+
+  const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: true, 
+      aspectRatio: 1.5,
+      scales: {
+          y: {
+              beginAtZero: false,
+              ticks: { color: '#eee' },
+              grid: { color: 'rgba(238, 238, 238, 0.1)' }
+          },
+          x: {
+              ticks: { color: '#eee' },
+              grid: { color: 'rgba(238, 238, 238, 0.1)' }
+          }
+      },
+      plugins: {
+          legend: { display: false },
+          title: {
+              display: true,
+              text: chartTitle,
+              color: '#eee',
+              font: { size: 16 }
+          },
+          tooltip: {
+              callbacks: {
+                  title: function(context) {
+                       return dailyLabels[context[0].dataIndex];
+                  },
+                  label: function(context) {
+                      return ` Balance: ${currency}${context.parsed.y.toFixed(2)}`;
+                  }
+              }
+          }
+      }
+  };
+
+  dailyChart = new Chart(chartEl, {
+      type: 'line',
+      data: {
+          labels: dailyLabels,
+          datasets: [{
+              label: 'Cumulative Daily Balance',
+              data: dailyData,
+              borderColor: '#FFD700', // Gold color
+              backgroundColor: 'rgba(255, 215, 0, 0.2)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+              pointHoverRadius: 5
+          }]
+      },
+      options: chartOptions
+  });
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* --- MONTHLY BALANCE CHART (ORIGINAL CODE BELOW) ---------------------- */
+/* ---------------------------------------------------------------------- */
 
 function openMonthlyBalanceModal(){
   document.getElementById('monthlyBalanceModal').style.display = 'flex';
@@ -793,7 +1081,10 @@ function closeMonthlyBalanceModal(){
 function updateMonthlyBalanceChart(fullScreen=false) {
   const chartEl = document.getElementById('monthlyBalanceChart');
 
-  const minDate = entries.length > 0 ? entries.reduce((min, e) => e.date < min ? e.date : min, entries[0].date) : selectedMonth + '-01';
+  // Logic for finding the minimum date is complex due to repeats, 
+  // we will simplify to start from the earliest entry or the current selected month if no entries exist.
+  const allDates = entries.map(e => e.date).concat(repeatingEntries.map(e => e.start));
+  const minDate = allDates.length > 0 ? allDates.reduce((min, d) => d < min ? d : min, allDates[0]) : selectedMonth + '-01';
   const firstMonth = minDate.slice(0, 7);
   
   const months = [];
@@ -803,22 +1094,26 @@ function updateMonthlyBalanceChart(fullScreen=false) {
   while (currentMonth <= endMonth) {
     months.push(`${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`);
     
+    // Move to next month
     const currentM = currentMonth.getMonth();
     currentMonth.setMonth(currentM + 1);
-    if (currentMonth.getMonth() !== (currentM + 1) % 12) {
-        currentMonth.setDate(0); 
-        currentMonth.setDate(1); 
+    // Correct for month rollover if setting date to 1 caused an issue (not typical for setting month+1, but safe guard)
+    if (currentMonth.getFullYear() * 12 + currentMonth.getMonth() > endMonth.getFullYear() * 12 + endMonth.getMonth()) {
+        break; 
     }
   }
   
   let runningBalance = 0;
   const balanceData = months.map(monthYM => {
     const monthEntries = entries.filter(e => e.date.startsWith(monthYM));
+    // Filter out explicitly excluded entries before calculating net
     const monthRepeats = getRepeatsForMonth(monthYM).filter(e => !e.excluded);
     const combined = [...monthEntries, ...monthRepeats];
     
     const monthlyNet = combined.reduce((sum, e) => sum + (e.type === 'income' ? e.amount : -e.amount), 0);
     
+    // The running balance calculation here is purely for the chart data point.
+    // The "actual" total balance is calculated in renderEntries() using getRunningBalanceUpToDate().
     runningBalance += monthlyNet;
     return runningBalance;
   });
@@ -881,6 +1176,8 @@ function updateMonthlyBalanceChart(fullScreen=false) {
   }
 }
 
+
+
 function scrollToCurrentMonthChart(index) {
   const chartWrapper = document.getElementById('chartWrapper');
   const chartCanvas = document.getElementById('monthlyBalanceChart');
@@ -911,13 +1208,17 @@ function clearAll(){
         localStorage.removeItem('budgetRepeats');
         
         if (currentUser) {
-            const docRef = doc(db, "budgets", currentUser.uid);
-            setDoc(docRef, { 
-              entries: [], 
-              repeatingEntries: [],
-              lastUpdated: new Date().toISOString()
-            }, { merge: true }) 
-            .catch(error => console.error("Error clearing Firestore data:", error));
+            // Only clear Firestore data if the user is verified/social logged in
+            const isSocialLogin = currentUser.providerData.some(p => p.providerId !== 'password');
+            if (currentUser.emailVerified || isSocialLogin) {
+                const docRef = doc(db, "budgets", currentUser.uid);
+                setDoc(docRef, { 
+                  entries: [], 
+                  repeatingEntries: [],
+                  lastUpdated: new Date().toISOString()
+                }, { merge: true }) 
+                .catch(error => console.error("Error clearing Firestore data:", error));
+            }
         }
         
         alert('All data cleared.');
@@ -994,6 +1295,7 @@ function importData(event){
 window.openAuthModal = openAuthModal;
 window.closeAuthModal = closeAuthModal;
 window.handleAuthAction = handleAuthAction;
+window.signInWithGoogle = signInWithGoogle; // NEW EXPOSURE
 window.userSignOut = userSignOut;
 window.changeCurrency = changeCurrency;
 window.openModal = openModal;
@@ -1014,3 +1316,11 @@ window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.openActionModal = openActionModal;
 window.handleActionClick = handleActionClick;
+window.closeActionModal = closeActionModal;
+// Expose the function needed by the Manage Repeats page script
+window.deleteRepeat = deleteRepeat; 
+window.updateRepeatField = updateRepeatField;
+
+// NEW EXPOSURES for Daily Chart Range:
+window.handleDailyChartRangeChange = handleDailyChartRangeChange; 
+window.setDailyChartDefaultRange = setDailyChartDefaultRange;
