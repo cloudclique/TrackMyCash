@@ -1010,7 +1010,7 @@ export function updateDailyBalanceChart(startDateStr, endDateStr){
   const chartOptions = {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: fullScreen ? 3 : 1.2,
+      aspectRatio: 1.2,
       scales: {
           y: {
               beginAtZero: false,
@@ -1322,4 +1322,5 @@ window.setDailyChartDefaultRange = setDailyChartDefaultRange;
 window.sendVerificationEmail = sendVerificationEmail; 
 
 // NEW EXPOSURE for Google Sign-In:
+
 window.signInWithGoogle = signInWithGoogle;
